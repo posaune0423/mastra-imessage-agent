@@ -58,7 +58,7 @@ bun run check       # vp check
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) で PR / `main` 向けに次のジョブを並列実行します。
 
-1. `quality / VP — fmt, oxlint, TypeScript`（`bun run check` ― `bunx vp` は Node 起動のため `vite.config.ts` を読めない）
+1. `quality / VP — fmt, oxlint, TypeScript`（`bun run check` — [`package.json`](./package.json) の `check` が **Bun で `vp` バイナリを直接実行**し、`vite.config.ts` を解決する。素の `vp` / `bunx vp` は Node 起動になり TS 設定で落ちる）
 2. `test / Vitest (vite-plus)`（`bun run test`）
 
 ## 実行
