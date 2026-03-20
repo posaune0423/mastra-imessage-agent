@@ -36,7 +36,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
-# SQLite database files (directory kept for LibSQL; ignore DB blobs)
+# SQLite / LibSQL (local only; never commit DB or directory)
 /data/
+
+# Vite+ git hooks (vp config generates `.vite-hooks/_`; hook scripts stay local)
+.vite-hooks/
 
 .agents/memory/

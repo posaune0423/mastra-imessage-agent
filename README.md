@@ -47,7 +47,10 @@ bun run check       # vp check
 
 ### Git hooks（Vite+）
 
-[Vite+ の commit hooks](https://viteplus.dev/guide/commit-hooks) を使います。`bun install` の `prepare` で `vp config` が走り、`core.hooksPath` を `.vite-hooks/_`（生成物、未コミット）に向けます。プロジェクト固有のスクリプトは [`.vite-hooks/pre-commit`](./.vite-hooks/pre-commit) / [`.vite-hooks/pre-push`](./.vite-hooks/pre-push) です。
+[Vite+ の commit hooks](https://viteplus.dev/guide/commit-hooks) を使います。`bun install` の `prepare` で `vp config` が走り、`core.hooksPath` を `.vite-hooks/_` に向けます。**`.vite-hooks/` はリポジトリに含めず**（`.gitignore`）、各環境で生成・編集します。推奨のローカル内容の例:
+
+- `.vite-hooks/pre-commit`: `vp staged`（`vite.config.ts` の `staged` を使用）
+- `.vite-hooks/pre-push`: `bun run ci:prepush`
 
 - **pre-commit**: [`vp staged`](./vite.config.ts)（`vite.config.ts` の `staged` に従い、ステージ済みへ `vp lint --fix` → `vp fmt`、ほか JSON/MD/YAML は `vp fmt` のみ）
 - **pre-push**: [`ci:prepush`](./package.json)（`vp check` + `bun run test`）
