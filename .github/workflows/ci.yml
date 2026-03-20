@@ -17,9 +17,17 @@ jobs:
     name: quality / VP — fmt, oxlint, TypeScript
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Oxfmt resolves vite.config.ts via Node; strip types without a separate transpile step.
+      NODE_OPTIONS: --experimental-strip-types
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node (for vp / Oxfmt loading vite.config.ts)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -29,7 +37,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # bunx は vp の shebang で Node を起動し、vite.config.ts を読めない。bun run で Bun 経由にする。
       - name: VP check (format + oxlint + typecheck)
         run: bun run check
 
@@ -38,11 +45,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      NODE_OPTIONS: --experimental-strip-types
       # Heartbeat active hours use local wall clock; default runner is UTC.
       TZ: Asia/Tokyo
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node (for vp / Vite loading vite.config.ts)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
