@@ -6,6 +6,11 @@ const fmtIgnorePatterns = ["**/node_modules/**", "dist/**", "out/**", "coverage/
  * Oxfmt + Vitest。Oxlint は `.oxlintrc.json`（`vp` / Node が `lint` 付き Vite 設定を Oxlint 設定として誤解釈するため分離）。
  */
 export default defineConfig({
+  /** `vp staged`（pre-commit）— lint-staged 互換のグロブ → コマンド */
+  staged: {
+    "*.{ts,tsx,mjs,cjs,js}": ["vp lint --fix", "vp fmt"],
+    "*.{json,jsonc,md,yml,yaml}": ["vp fmt"],
+  },
   fmt: {
     ignorePatterns: fmtIgnorePatterns,
     printWidth: 120,

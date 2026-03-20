@@ -45,12 +45,14 @@ bun run lint:fix    # vp lint --fix
 bun run check       # vp check
 ```
 
-### Git hooks（Husky）
+### Git hooks（Vite+）
 
-- **pre-commit**: `lint-staged`（ステージ済みに `vp lint --fix` → `vp fmt`）
-- **pre-push**: `ci:prepush`（`vp check` + `bun run test`）
+[Vite+ の commit hooks](https://viteplus.dev/guide/commit-hooks) を使います。`bun install` の `prepare` で `vp config` が走り、`core.hooksPath` を `.vite-hooks/_`（生成物、未コミット）に向けます。プロジェクト固有のスクリプトは [`.vite-hooks/pre-commit`](./.vite-hooks/pre-commit) / [`.vite-hooks/pre-push`](./.vite-hooks/pre-push) です。
 
-初回 clone 後は `bun install` で `prepare` により Husky が有効になります。
+- **pre-commit**: [`vp staged`](./vite.config.mjs)（`vite.config.mjs` の `staged` に従い、ステージ済みへ `vp lint --fix` → `vp fmt`、ほか JSON/MD/YAML は `vp fmt` のみ）
+- **pre-push**: [`ci:prepush`](./package.json)（`vp check` + `bun run test`）
+
+手動でフックだけ入れ直す場合: `bunx vp config`。無効化: `VITE_GIT_HOOKS=0 bun install` など。
 
 ### CI（GitHub Actions）
 
