@@ -37,5 +37,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .DS_Store
 
 # SQLite database files (directory kept for LibSQL; ignore DB blobs)
-/data/*
-!/data/.gitkeep
+/data/
+
+.agents/memory/
