@@ -30,7 +30,7 @@ bun install
 
 ### フォーマット・Lint・型チェック
 
-Lint は **Oxlint のみ**（ESLint は使いません）。ルールは [`.oxlintrc.json`](./.oxlintrc.json)（`ignorePatterns` / `plugins` / `env` / `options` / `categories` / `rules` / `overrides`）。[`vite.config.mjs`](./vite.config.mjs) には **Oxfmt と Vitest** のみを置きます。`vp` が Vite 設定を Oxlint 設定として読み込むため、`lint` を `vite.config` に書くと `fmt` など未知フィールドで失敗するため分離しています。CI の `vp` は Node 実行のため Vite 側は **`.mjs`**（`.ts` はロードできない）。
+Lint は **Oxlint のみ**（ESLint は使いません）。ルールは [`.oxlintrc.json`](./.oxlintrc.json)（`ignorePatterns` / `plugins` / `env` / `options` / `categories` / `rules` / `overrides`）。[`vite.config.ts`](./vite.config.ts) には **Oxfmt・Vitest・`staged`（`vp staged`）** を置きます。`vp` が Vite 設定を Oxlint 設定として読み込むため、`lint` を `vite.config` に書くと `fmt` など未知フィールドで失敗するため、Oxlint 本体は `.oxlintrc.json` に分離しています。
 
 ```bash
 vp fmt              # Oxfmt で整形
@@ -49,7 +49,7 @@ bun run check       # vp check
 
 [Vite+ の commit hooks](https://viteplus.dev/guide/commit-hooks) を使います。`bun install` の `prepare` で `vp config` が走り、`core.hooksPath` を `.vite-hooks/_`（生成物、未コミット）に向けます。プロジェクト固有のスクリプトは [`.vite-hooks/pre-commit`](./.vite-hooks/pre-commit) / [`.vite-hooks/pre-push`](./.vite-hooks/pre-push) です。
 
-- **pre-commit**: [`vp staged`](./vite.config.mjs)（`vite.config.mjs` の `staged` に従い、ステージ済みへ `vp lint --fix` → `vp fmt`、ほか JSON/MD/YAML は `vp fmt` のみ）
+- **pre-commit**: [`vp staged`](./vite.config.ts)（`vite.config.ts` の `staged` に従い、ステージ済みへ `vp lint --fix` → `vp fmt`、ほか JSON/MD/YAML は `vp fmt` のみ）
 - **pre-push**: [`ci:prepush`](./package.json)（`vp check` + `bun run test`）
 
 手動でフックだけ入れ直す場合: `bunx vp config`。無効化: `VITE_GIT_HOOKS=0 bun install` など。

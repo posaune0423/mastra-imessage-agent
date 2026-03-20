@@ -40,9 +40,7 @@ export class HeartbeatStateStore {
     const { Database } = await import("bun:sqlite");
     const db = new Database(dbPath);
 
-    const row = db
-      .query<{ value: string }, []>("SELECT value FROM heartbeat_state WHERE key = 'state'")
-      .get();
+    const row = db.query<{ value: string }, []>("SELECT value FROM heartbeat_state WHERE key = 'state'").get();
 
     db.close();
 

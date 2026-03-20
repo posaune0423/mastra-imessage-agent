@@ -3,7 +3,7 @@ import { defineConfig } from "vite-plus";
 const fmtIgnorePatterns = ["**/node_modules/**", "dist/**", "out/**", "coverage/**", ".vite/**"];
 
 /**
- * Oxfmt + Vitest。Oxlint は `.oxlintrc.json`（`vp` / Node が `lint` 付き Vite 設定を Oxlint 設定として誤解釈するため分離）。
+ * Oxfmt + Vitest + `vp staged`。Oxlint ルールは `.oxlintrc.json` に分離（`lint` をここに書くと Oxlint が誤解釈するため）。
  */
 export default defineConfig({
   /** `vp staged`（pre-commit）— lint-staged 互換のグロブ → コマンド */

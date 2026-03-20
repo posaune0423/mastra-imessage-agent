@@ -32,10 +32,7 @@ describe("get-datetime tool", () => {
 
   test("respects specified timezone", async () => {
     const { getDateTimeTool } = await import("../../src/agent/tools/get-datetime");
-    const result = (await getDateTimeTool.execute!(
-      { timezone: "America/New_York" },
-      {} as never,
-    )) as {
+    const result = (await getDateTimeTool.execute!({ timezone: "America/New_York" }, {} as never)) as {
       timezone: string;
       iso: string;
       readable: string;
@@ -58,9 +55,7 @@ describe("send-message tool", () => {
 
   test("throws if sendFn not injected", async () => {
     const { sendMessageTool } = await import("../../src/agent/tools/send-message");
-    await expect(sendMessageTool.execute!({ text: "hello" }, {} as never)).rejects.toThrow(
-      "sendFn not injected",
-    );
+    await expect(sendMessageTool.execute!({ text: "hello" }, {} as never)).rejects.toThrow("sendFn not injected");
   });
 
   test("calls injected sendFn with owner phone", async () => {
@@ -88,15 +83,11 @@ describe("set-reminder tool", () => {
   });
 
   test("calls injected addReminder", async () => {
-    const { setReminderTool, injectAddReminder } =
-      await import("../../src/agent/tools/set-reminder");
+    const { setReminderTool, injectAddReminder } = await import("../../src/agent/tools/set-reminder");
     const mockAdd = vi.fn().mockResolvedValue(undefined);
     injectAddReminder(mockAdd);
 
-    const result = await setReminderTool.execute!(
-      { text: "buy milk", dueAt: "2026-03-22T14:00:00Z" },
-      {} as never,
-    );
+    const result = await setReminderTool.execute!({ text: "buy milk", dueAt: "2026-03-22T14:00:00Z" }, {} as never);
 
     expect(mockAdd).toHaveBeenCalledWith({
       text: "buy milk",

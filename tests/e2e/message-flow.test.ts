@@ -80,10 +80,7 @@ describe("message flow e2e", () => {
     expect(mockSend).toHaveBeenCalledWith("+819000000000", "test");
 
     const { setReminderTool } = await import("../../src/agent/tools/set-reminder");
-    await setReminderTool.execute!(
-      { text: "reminder", dueAt: "2026-04-01T00:00:00Z" },
-      {} as never,
-    );
+    await setReminderTool.execute!({ text: "reminder", dueAt: "2026-04-01T00:00:00Z" }, {} as never);
     expect(mockAddReminder).toHaveBeenCalledWith({
       text: "reminder",
       dueAt: "2026-04-01T00:00:00Z",
@@ -111,10 +108,7 @@ describe("message flow e2e", () => {
     const prompt = mockAgent.generate.mock.calls[0]![0] as string;
     expect(prompt).toContain("[HEARTBEAT CHECK]");
 
-    expect(mockSdk.send).toHaveBeenCalledWith(
-      "+819000000000",
-      "Reminder: meeting at 3pm is in 30 minutes",
-    );
+    expect(mockSdk.send).toHaveBeenCalledWith("+819000000000", "Reminder: meeting at 3pm is in 30 minutes");
 
     engine.stop();
     vi.useRealTimers();
