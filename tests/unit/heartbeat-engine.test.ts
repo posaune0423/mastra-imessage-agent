@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import type { HeartbeatEngine } from "../../src/agent/heartbeat/engine";
 
 vi.mock("../../src/env", () => ({
   env: {
@@ -28,7 +29,7 @@ vi.mock("node:fs", () => ({
 }));
 
 describe("HeartbeatEngine", () => {
-  let engine: InstanceType<typeof import("../../src/agent/heartbeat/engine").HeartbeatEngine>;
+  let engine: HeartbeatEngine;
   let mockSdk: { send: ReturnType<typeof vi.fn> };
   let mockAgent: { generate: ReturnType<typeof vi.fn> };
 

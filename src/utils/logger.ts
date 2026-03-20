@@ -3,7 +3,9 @@ import { env } from "../env";
 
 export const logger = createConsola({ level: logLevelToNumber(env.LOG_LEVEL) });
 
-function logLevelToNumber(level: "fatal" | "error" | "warn" | "log" | "info" | "debug" | "trace"): number {
+function logLevelToNumber(
+  level: "fatal" | "error" | "warn" | "log" | "info" | "debug" | "trace",
+): number {
   switch (level) {
     case "fatal":
     case "error":

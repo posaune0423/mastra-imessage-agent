@@ -1,18 +1,22 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { env } from "../../env";
 
-export interface Reminder {
-  id: string;
-  text: string;
-  dueAt: string; // ISO 8601
-  createdAt: string;
-}
+const reminderSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  dueAt: z.string(),
+  createdAt: z.string(),
+});
 
-export interface HeartbeatState {
-  reminders: Reminder[];
-  metadata: Record<string, unknown>;
-  lastRunAt: string | null;
-}
+const heartbeatStateSchema = z.object({
+  reminders: z.array(reminderSchema),
+  metadata: z.record(z.string(), z.unknown()),
+  lastRunAt: z.union([z.string(), z.null()]),
+});
+
+export type Reminder = z.infer<typeof reminderSchema>;
+export type HeartbeatState = z.infer<typeof heartbeatStateSchema>;
 
 const DB_PATH = env.DATABASE_URL;
 
@@ -36,7 +40,9 @@ export class HeartbeatStateStore {
     const { Database } = await import("bun:sqlite");
     const db = new Database(dbPath);
 
-    const row = db.query<{ value: string }, []>("SELECT value FROM heartbeat_state WHERE key = 'state'").get();
+    const row = db
+      .query<{ value: string }, []>("SELECT value FROM heartbeat_state WHERE key = 'state'")
+      .get();
 
     db.close();
 
@@ -44,7 +50,7 @@ export class HeartbeatStateStore {
       return { reminders: [], metadata: {}, lastRunAt: null };
     }
 
-    return JSON.parse(row.value) as HeartbeatState;
+    return heartbeatStateSchema.parse(JSON.parse(row.value));
   }
 
   async save(state: HeartbeatState): Promise<void> {

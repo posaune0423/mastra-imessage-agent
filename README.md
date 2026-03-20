@@ -30,10 +30,7 @@ bun install
 
 ### フォーマット・Lint・型チェック
 
-Lint は **Oxlint のみ**（ESLint は使いません）。設定は次の2つに分かれます。
-
-- [`vite.config.ts`](./vite.config.ts) の `lint.options`（例: `typeAware` / `typeCheck`）
-- [`.oxlintrc.json`](./.oxlintrc.json) の `plugins` / `env`（import / typescript / unicorn / node / vitest など、Oxlint で表現できる範囲のルール）
+Lint は **Oxlint のみ**（ESLint は使いません）。ルールは [`.oxlintrc.json`](./.oxlintrc.json)（`ignorePatterns` / `plugins` / `env` / `options` / `categories` / `rules` / `overrides`）。[`vite.config.mjs`](./vite.config.mjs) には **Oxfmt と Vitest** のみを置きます。`vp` が Vite 設定を Oxlint 設定として読み込むため、`lint` を `vite.config` に書くと `fmt` など未知フィールドで失敗するため分離しています。CI の `vp` は Node 実行のため Vite 側は **`.mjs`**（`.ts` はロードできない）。
 
 ```bash
 vp fmt              # Oxfmt で整形

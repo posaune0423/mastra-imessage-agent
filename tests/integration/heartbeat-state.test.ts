@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
+import type { HeartbeatStateStore } from "../../src/agent/heartbeat/state";
 
 // Shared storage across MockDatabase instances (simulates file-based DB)
 let sharedStore: Map<string, Record<string, unknown>>;
@@ -42,7 +43,7 @@ vi.mock("bun:sqlite", () => ({
 }));
 
 describe("HeartbeatStateStore", () => {
-  let store: InstanceType<typeof import("../../src/agent/heartbeat/state").HeartbeatStateStore>;
+  let store: HeartbeatStateStore;
 
   beforeEach(async () => {
     // Reset shared store for each test

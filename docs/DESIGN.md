@@ -414,7 +414,9 @@ import { z } from "zod";
 // Heartbeat state への書き込み関数を後から注入
 let _addReminder: ((reminder: { text: string; dueAt: string }) => Promise<void>) | null = null;
 
-export function injectAddReminder(fn: (reminder: { text: string; dueAt: string }) => Promise<void>) {
+export function injectAddReminder(
+  fn: (reminder: { text: string; dueAt: string }) => Promise<void>,
+) {
   _addReminder = fn;
 }
 
@@ -576,7 +578,9 @@ export class HeartbeatStateStore {
     const { Database } = await import("bun:sqlite");
     const db = new Database(dbPath);
 
-    const row = db.query<{ value: string }, []>("SELECT value FROM heartbeat_state WHERE key = 'state'").get();
+    const row = db
+      .query<{ value: string }, []>("SELECT value FROM heartbeat_state WHERE key = 'state'")
+      .get();
 
     db.close();
 

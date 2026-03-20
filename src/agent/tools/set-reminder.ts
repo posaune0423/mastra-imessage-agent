@@ -3,7 +3,9 @@ import { z } from "zod";
 
 let _addReminder: ((reminder: { text: string; dueAt: string }) => Promise<void>) | null = null;
 
-export function injectAddReminder(fn: (reminder: { text: string; dueAt: string }) => Promise<void>) {
+export function injectAddReminder(
+  fn: (reminder: { text: string; dueAt: string }) => Promise<void>,
+) {
   _addReminder = fn;
 }
 
