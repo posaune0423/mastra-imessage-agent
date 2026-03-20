@@ -20,9 +20,13 @@ cd mastra-imessage-agent
 
 ## セットアップ
 
+依存関係は **Bun** で入れます（`package.json` の `packageManager` は `bun@1.3.10`）。Vite+ の CLI である `vp install` は現状 Bun をサポートしていないため、このリポジトリでは `bun install` / `bun add` / `bun remove` を使ってください。
+
 ```bash
 bun install
 ```
+
+[Vite+ の `vp`](https://viteplus.dev/guide/) はグローバルに入れておくと、`vp check` など開発用コマンドが使えます（依存の解決は上記のとおり Bun）。
 
 ## 実行
 
