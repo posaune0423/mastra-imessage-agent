@@ -58,7 +58,7 @@ bun run check       # vp check
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) で PR / `main` 向けに次のジョブを並列実行します。
 
-1. `quality / VP — fmt, oxlint, TypeScript`（`bun run check` → `vp check`。Oxfmt が Node で `vite.config.ts` を読むため、CI では **Node 22** と `NODE_OPTIONS=--experimental-strip-types` を設定）
+1. `quality / VP — fmt, oxlint, TypeScript`（`bun run check` → `vp check`。Oxfmt が Node で `vite.config.ts` を読むため **Node 22** と、**`vp check` ステップだけ**に `NODE_OPTIONS=--experimental-strip-types` — ジョブ全体に付けると `actions/checkout` の Node 20 と衝突する）
 2. `test / Vitest (vite-plus)`（`bun run test`）
 
 ## 実行
