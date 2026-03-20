@@ -36,5 +36,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
-# SQLite database files
-data
+# SQLite database files (directory kept for LibSQL; ignore DB blobs)
+/data/*
+!/data/.gitkeep

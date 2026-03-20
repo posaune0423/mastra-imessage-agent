@@ -104,7 +104,13 @@ Instructions:
       return;
     }
 
-    const responseText = result.text.trim();
+    const text = result.text;
+    if (text === undefined || text === null) {
+      logger.error("Heartbeat agent error: missing text in generate() result");
+      return;
+    }
+
+    const responseText = text.trim();
     logger.debug(`Heartbeat response: ${responseText.slice(0, 80)}...`);
 
     if (responseText.startsWith("HEARTBEAT_OK")) {

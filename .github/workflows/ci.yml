@@ -36,6 +36,9 @@ jobs:
     name: test / Vitest (vite-plus)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Heartbeat active hours use local wall clock; default runner is UTC.
+      TZ: Asia/Tokyo
     steps:
       - name: Checkout
         uses: actions/checkout@v4
