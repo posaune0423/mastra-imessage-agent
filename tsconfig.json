@@ -2,6 +2,7 @@
   "compilerOptions": {
     // Environment setup & latest features
     "lib": ["ESNext"],
+    "types": ["bun"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
@@ -24,6 +25,12 @@
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
-  }
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Map vitest imports to vite-plus-test
+    "paths": {
+      "vitest": ["./node_modules/@voidzero-dev/vite-plus-test"]
+    }
+  },
+  "include": ["src/**/*", "tests/**/*", "vite.config.ts"]
 }

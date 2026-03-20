@@ -1,8 +1,8 @@
 # Agent Guidelines
 
-- please do not eslint-disable, just fix the implementation
+- please do not oxlint-disable / eslint-disable; fix the implementation
 - Please use GitHub Flavored Markdown
-- do not ignore eslint
+- do not ignore Oxlint (use `vp lint` / `vp check`)
 - Never read secret env files during normal work. Do not open or inspect `.env*`, `.dev.vars`, `.prod.vars`, `.env.keys`, or other secret-bearing local config unless the user explicitly asks for that file/value.
 - If env context is needed, use committed docs and `src/env.ts` to understand the schema, and ask the user to paste a non-secret subset instead of reading local secret files.
 
