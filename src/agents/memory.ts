@@ -4,6 +4,19 @@ import { Memory } from "@mastra/memory";
 import { env } from "../env";
 
 export function createAgentMemory(): Memory {
+  const observationalMemory = env.AUTONOMY_OBSERVATIONAL_MEMORY
+    ? {
+        model: env.AUTONOMY_OBSERVATIONAL_MODEL ?? env.ANTHROPIC_MODEL,
+        scope: "resource" as const,
+        observation: {
+          messageTokens: 12_000,
+        },
+        reflection: {
+          observationTokens: 24_000,
+        },
+      }
+    : false;
+
   return new Memory({
     storage: new LibSQLStore({
       id: "agent-storage",
@@ -16,11 +29,28 @@ export function createAgentMemory(): Memory {
         scope: "resource",
         template: `# Owner Profile
 - Name:
-- Preferences:
-- Ongoing Tasks:
-- Reminders:
+- Timezone:
+- Preferred Reminder Style:
+
+# Current Goals
+- Goal 1:
+- Goal 2:
+
+# Open Loops
+- Pending follow-up:
+- Waiting on:
+
+# Commitments
+- Recurring commitments:
+- Promises already made:
+
+# Messaging Context
+- Default Delivery Target:
+- Known Contacts / Chats:
+- Tool Constraints:
 `,
       },
+      observationalMemory,
     },
   });
 }

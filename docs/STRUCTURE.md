@@ -22,7 +22,18 @@
 │   │   ├── SOUL.md
 │   │   ├── general-agent.ts
 │   │   ├── heartbeat.ts
-│   │   └── memory.ts
+│   │   ├── memory.ts
+│   │   ├── mcp/
+│   │   │   ├── client.ts
+│   │   │   ├── index.ts
+│   │   │   ├── servers.ts
+│   │   │   └── toolsets.ts
+│   │   └── tools/
+│   │       ├── imessage.ts
+│   │       ├── index.ts
+│   │       ├── runtime.ts
+│   │       ├── scheduling.ts
+│   │       └── web.ts
 │   ├── utils/
 │   │   ├── fs.ts
 │   │   ├── logger.ts
@@ -57,6 +68,8 @@ agent 関連の実装と、agent が runtime に読む markdown asset を置く�
 - agent definition
 - memory
 - heartbeat
+- `tools/` — Mastra tool definitions と runtime wrappers
+- `mcp/` — MCP server 定義、client、toolset 解決
 
 ### 3.3 `src/utils/`
 
@@ -92,3 +105,5 @@ Vitest の test hierarchy を固定する。
 - file loader は `src/utils/fs.ts`
 - entrypoint は `src/main.ts`
 - agent prompt markdown は `src/agents/*.md`
+- tool 実装は `src/agents/tools/*.ts`
+- MCP 実装は `src/agents/mcp/*.ts`

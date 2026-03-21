@@ -1,3 +1,5 @@
+import type { ToolsetsInput } from "@mastra/core/agent";
+
 import { env } from "../env";
 import { loadTextFile } from "../utils/fs";
 import { logger } from "../utils/logger";
@@ -10,6 +12,8 @@ interface AgentLike {
         resource: string;
         thread: string;
       };
+      maxSteps?: number;
+      toolsets?: ToolsetsInput;
     },
   ) => Promise<{
     text: string;
@@ -44,6 +48,8 @@ export class HeartbeatEngine {
       intervalMs?: number;
       activeStart?: string;
       activeEnd?: string;
+      resolveToolsets?: () => Promise<ToolsetsInput>;
+      maxSteps?: number;
     },
   ) {}
 
@@ -76,11 +82,14 @@ export class HeartbeatEngine {
       return "skipped";
     }
 
+    const toolsets = await this.deps.resolveToolsets?.();
     const result = await this.deps.agent.generate(loadTextFile(new URL("./HEARTBEAT.md", import.meta.url)), {
       memory: {
         resource: this.deps.ownerPhone,
-        thread: "heartbeat",
+        thread: "autonomy",
       },
+      maxSteps: this.deps.maxSteps,
+      toolsets,
     });
     const reply = result.text.trim();
 
