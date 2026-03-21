@@ -40,8 +40,7 @@ graph TB
 
         subgraph HeartbeatEngine["Heartbeat Engine"]
             HB_TIMER["setInterval\n(HEARTBEAT_INTERVAL_MS)"]
-            HB_LOGIC["tick()\n\n1. isActiveHours?\n2. read HEARTBEAT.md\n3. agent.generate\n4. HEARTBEAT_OK? → silent\n   else → sdk.send"]
-            HB_STATE["HeartbeatState\n(LibSQL)\n\nmetadata, reminders\nlast_run_at"]
+            HB_LOGIC["tick()\n\n1. isActiveHours?\n2. loadTextFile(HEARTBEAT.md)\n3. agent.generate\n4. HEARTBEAT_OK? → silent\n   else → sdk.send"]
         end
 
         subgraph MemoryLayer["Memory (per user)"]
@@ -52,9 +51,6 @@ graph TB
             DB["LibSQLStore\n./data/agent.db\n\nthreads, messages\nworking_memory"]
         end
 
-        subgraph WorkflowLayer["Workflows"]
-            WF["dailyReportWorkflow\ncron: '0 9 * * *'"]
-        end
     end
 
     subgraph External["External"]
@@ -67,13 +63,9 @@ graph TB
     AGENT -->|"reply text"| SDK
     HB_TIMER --> HB_LOGIC
     HB_LOGIC --> AGENT
-    HB_LOGIC --> HB_STATE
     HB_LOGIC -->|"alert text"| SDK
     AGENT <--> MEMORY
     MEMORY --> DB
-    HB_STATE --> DB
-    WF --> AGENT
-    WF -->|"report text"| SDK
     AGENT <-->|"API call"| CLAUDE
 ```
 
@@ -84,7 +76,7 @@ sequenceDiagram
     participant User as User (iPhone)
     participant iMsg as iMessage.app
     participant SDK as IMessageSDK
-    participant Main as index.ts
+    participant Main as main.ts
     participant Agent as generalAgent
     participant Mem as Memory
     participant DB as agent.db
@@ -122,8 +114,7 @@ sequenceDiagram
 sequenceDiagram
     participant Timer as setInterval
     participant HB as HeartbeatEngine
-    participant FS as HEARTBEAT.md
-    participant DB as agent.db
+    participant FS as src/agents/HEARTBEAT.md
     participant Agent as generalAgent
     participant LLM as Claude API
     participant SDK as IMessageSDK
@@ -136,13 +127,10 @@ sequenceDiagram
         HB-->>Timer: skip
     end
 
-    HB->>FS: readFile("./HEARTBEAT.md")
+    HB->>FS: loadTextFile("./HEARTBEAT.md")
     FS-->>HB: checklist content
 
-    HB->>DB: loadHeartbeatState()
-    DB-->>HB: {reminders: [...], metadata: {...}}
-
-    HB->>Agent: agent.generate(prompt, {<br/>  memory: { resource: OWNER_PHONE,<br/>  thread: "heartbeat" }<br/>})
+    HB->>Agent: agent.generate(checklist, {<br/>  memory: { resource: OWNER_PHONE,<br/>  thread: "heartbeat" }<br/>})
     Agent->>LLM: POST /v1/messages
     LLM-->>Agent: response text
 
@@ -154,8 +142,6 @@ sequenceDiagram
         HB->>SDK: sdk.send(OWNER_PHONE, alertText)
         SDK->>User: [iMessage notification]
     end
-
-    HB->>DB: saveHeartbeatState({last_run_at: now})
 ```
 
 ---
@@ -165,48 +151,43 @@ sequenceDiagram
 ```
 imessage-mastra-agent/
 │
+├── docs/
+│   ├── DESIGN.md                   # 技術設計書（本ファイル）
+│   ├── PRD.md
+│   ├── STRUCTURE.md
+│   └── TECH.md
+│
+├── scripts/
+│   └── send-message.ts             # 手動メッセージ送信スクリプト
+│
 ├── src/
+│   ├── agents/
+│   │   ├── HEARTBEAT.md            # Heartbeat チェックリスト（カスタマイズ用）
+│   │   ├── SOUL.md                 # Agent システムプロンプト（カスタマイズ用）
+│   │   ├── general-agent.ts        # generalAgent 定義
+│   │   ├── heartbeat.ts            # HeartbeatEngine class
+│   │   └── memory.ts               # Memory + LibSQLStore 初期化
 │   │
-│   ├── index.ts                    # ★ エントリーポイント
-│   │                               #   SDK起動・ハンドラ登録・Heartbeat起動
+│   ├── utils/
+│   │   ├── fs.ts                   # ファイル読み込みユーティリティ
+│   │   ├── logger.ts               # ロガー
+│   │   └── phone.ts                # 電話番号正規化ユーティリティ
 │   │
-│   ├── mastra/
-│   │   └── index.ts                # Mastra インスタンス生成
-│   │                               # new Mastra({ agents, workflows, storage })
-│   │
-│   ├── agent/
-│   │   ├── index.ts                # generalAgent 定義
-│   │   │                           # new Agent({ model, instructions, tools, memory })
-│   │   ├── memory.ts               # Memory + LibSQLStore 初期化
-│   │   └── tools/
-│   │       ├── index.ts            # ツール一覧 re-export
-│   │       ├── get-datetime.ts     # 現在日時を返すツール
-│   │       ├── send-message.ts     # agent → iMessage 送信ツール
-│   │       ├── set-reminder.ts     # heartbeat state にリマインダー追加
-│   │       └── web-search.ts       # Web 検索（スタブ）
-│   │   │
-│   │   ├── heartbeat/
-│   │   │   ├── engine.ts           # HeartbeatEngine class
-│   │   │   │                       # start/stop/tick/isActiveHours
-│   │   │   └── state.ts            # HeartbeatState の SQLite 永続化
-│   │   │
-│   ├── workflows/
-│   │   └── daily-report.ts         # 日次レポート Workflow (cron スタブ)
-│   │
-│   └── lib/
-│       ├── env.ts                  # 環境変数バリデーション (zod)
-│       └── phone.ts                # 電話番号正規化ユーティリティ
+│   ├── env.ts                      # 環境変数バリデーション (@t3-oss/env-core)
+│   └── main.ts                     # ★ エントリーポイント
+│
+├── tests/
+│   ├── e2e/
+│   ├── integration/
+│   ├── setup.ts
+│   └── unit/
 │
 ├── data/                           # DB ファイル置き場（gitignore）
 │   └── .gitkeep
 │
-├── HEARTBEAT.md                    # Heartbeat チェックリスト（カスタマイズ用）
-├── SOUL.md                         # Agent システムプロンプト（カスタマイズ用）
-│
 ├── .env                            # ← gitignore
 ├── .env.example
 ├── .gitignore
-├── bunfig.toml
 ├── tsconfig.json
 └── package.json
 ```
@@ -215,692 +196,291 @@ imessage-mastra-agent/
 
 ```mermaid
 graph TD
-    INDEX["src/index.ts"]
+    MAIN["src/main.ts"]
 
-    INDEX --> SDK_WRAP["IMessageSDK\n(imessage-kit)"]
-    INDEX --> AGENT["src/agent/index.ts"]
-    INDEX --> HB_ENGINE["src/agent/heartbeat/engine.ts"]
-    INDEX --> MASTRA["src/mastra/index.ts"]
+    MAIN --> SDK_WRAP["IMessageSDK\n(imessage-kit)"]
+    MAIN --> AGENT["src/agents/general-agent.ts"]
+    MAIN --> HB_ENGINE["src/agents/heartbeat.ts"]
+    MAIN --> ENV["src/env.ts"]
+    MAIN --> LOGGER["src/utils/logger.ts"]
+    MAIN --> PHONE["src/utils/phone.ts"]
 
-    AGENT --> TOOLS["src/agent/tools/index.ts"]
-    AGENT --> MEMORY["src/agent/memory.ts"]
+    AGENT --> MEMORY["src/agents/memory.ts"]
+    AGENT --> DOCS["src/agents/docs.ts"]
+    AGENT --> ENV
     MEMORY --> DB["@mastra/libsql\nLibSQLStore"]
+    MEMORY --> ENV
 
-    HB_ENGINE --> HB_STATE["src/agent/heartbeat/state.ts"]
-    HB_ENGINE --> AGENT
-    HB_ENGINE --> SDK_WRAP
-    HB_STATE --> DB
+    HB_ENGINE --> DOCS
+    HB_ENGINE --> ENV
+    HB_ENGINE --> LOGGER
 
-    MASTRA --> AGENT
-    MASTRA --> WF["src/workflows/daily-report.ts"]
-    MASTRA --> DB
-
-    TOOLS --> SDK_WRAP
-
-    INDEX --> ENV["src/lib/env.ts"]
-    INDEX --> PHONE["src/lib/phone.ts"]
+    DOCS --> FS["agents/*.md"]
 ```
 
 ---
 
 ## 3. 各モジュールの実装詳細
 
-### 3.1 `src/lib/env.ts`
+### 3.1 `src/env.ts`
 
 **最初に作る。他の全モジュールがこれに依存する。**
 
 ```typescript
+import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
-const schema = z.object({
-  ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required"),
-  OWNER_PHONE: z.string().min(1, "OWNER_PHONE is required"),
-
-  HEARTBEAT_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000), // 1h
-  HEARTBEAT_ACTIVE_START: z.string().default("08:00"),
-  HEARTBEAT_ACTIVE_END: z.string().default("22:00"),
-
-  DATABASE_URL: z.string().default("file:./data/agent.db"),
+export const env = createEnv({
+  server: {
+    ANTHROPIC_API_KEY: z.string().min(1),
+    ANTHROPIC_MODEL: z.string().default("anthropic/claude-sonnet-4.6"),
+    OWNER_PHONE: z.string().min(1),
+    HEARTBEAT_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000),
+    HEARTBEAT_ACTIVE_START: z.string().regex(/^\d{2}:\d{2}$/).default("08:00"),
+    HEARTBEAT_ACTIVE_END: z.string().regex(/^\d{2}:\d{2}$/).default("22:00"),
+    DATABASE_URL: z.string().default("file:./data/agent.db"),
+    LOG_LEVEL: z.enum(["fatal", "error", "warn", "log", "info", "debug", "trace"]).default("info"),
+  },
+  runtimeEnv: process.env,
+  emptyStringAsUndefined: true,
 });
-
-const parsed = schema.safeParse(process.env);
-if (!parsed.success) {
-  console.error("❌ Invalid environment variables:");
-  console.error(parsed.error.flatten().fieldErrors);
-  process.exit(1);
-}
-
-export const env = parsed.data;
 ```
 
 ---
 
-### 3.2 `src/lib/phone.ts`
+### 3.2 `src/utils/phone.ts`
 
 ```typescript
-/**
- * 電話番号を統一フォーマットに正規化する
- * "+1 (234) 567-890" → "+1234567890"
- */
 export function normalizePhone(phone: string): string {
-  return phone.replace(/[\s\-().]/g, "");
+  return phone.trim().replace(/[\s\-().]/g, "");
+}
+
+export function samePhone(left: string, right: string): boolean {
+  return normalizePhone(left) === normalizePhone(right);
 }
 ```
 
 ---
 
-### 3.3 `src/agent/memory.ts`
+### 3.3 `src/utils/fs.ts`
+
+**汎用のテキストファイル読み込みユーティリティ。**
+
+```typescript
+import { readFileSync } from "node:fs";
+
+export function loadTextFile(filePath: string | URL): string {
+  return readFileSync(filePath, "utf8").trim();
+}
+```
+
+---
+
+### 3.4 `src/agents/memory.ts`
 
 **Memory と Storage の初期化。Agent 定義より先に作る。**
 
 ```typescript
-import { Memory } from "@mastra/memory";
 import { LibSQLStore } from "@mastra/libsql";
-import { env } from "../lib/env";
+import { Memory } from "@mastra/memory";
+import { env } from "../env";
 
-export const storage = new LibSQLStore({
-  id: "agent-storage",
-  url: env.DATABASE_URL,
-});
-
-export const memory = new Memory({
-  storage, // ← storage を Memory に渡す
-  options: {
-    lastMessages: 20, // 直近20件を context に含める
-    workingMemory: {
-      enabled: true,
-      // ユーザー属性を保持するテンプレート
-      template: `# User Profile
-- Name: (unknown)
-- Preferences: (none)
-- Timezone: (unknown)
-- Notes: (none)`,
+export function createAgentMemory(): Memory {
+  return new Memory({
+    storage: new LibSQLStore({
+      id: "agent-storage",
+      url: env.DATABASE_URL,
+    }),
+    options: {
+      lastMessages: 20,
+      workingMemory: {
+        enabled: true,
+        scope: "resource",
+        template: `# Owner Profile
+- Name:
+- Preferences:
+- Ongoing Tasks:
+- Reminders:
+`,
+      },
     },
-  },
-});
-```
-
-> **注意**: `observationalMemory` は長期運用時に有効化を検討。  
-> 初期実装では `lastMessages: 20` のみで十分。
-
----
-
-### 3.4 `src/agent/tools/get-datetime.ts`
-
-```typescript
-import { createTool } from "@mastra/core/tools";
-import { z } from "zod";
-
-export const getDateTimeTool = createTool({
-  id: "get-datetime",
-  description:
-    "Returns the current date, time, and day of week. Use this when the user asks about the current time or date.",
-  inputSchema: z.object({
-    timezone: z.string().optional().describe("IANA timezone name e.g. Asia/Tokyo"),
-  }),
-  outputSchema: z.object({
-    iso: z.string(),
-    readable: z.string(),
-    dayOfWeek: z.string(),
-    timezone: z.string(),
-  }),
-  execute: async ({ timezone }) => {
-    const tz = timezone ?? "Asia/Tokyo";
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat("ja-JP", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      weekday: "long",
-    });
-    const parts = formatter.formatToParts(now);
-    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-
-    return {
-      iso: now.toISOString(),
-      readable: `${get("year")}/${get("month")}/${get("day")} ${get("hour")}:${get("minute")}`,
-      dayOfWeek: get("weekday"),
-      timezone: tz,
-    };
-  },
-});
-```
-
----
-
-### 3.5 `src/agent/tools/send-message.ts`
-
-**SDK への参照を後からインジェクトする設計。循環依存を避けるため。**
-
-```typescript
-import { createTool } from "@mastra/core/tools";
-import { z } from "zod";
-import { env } from "../../lib/env";
-
-// SDK インスタンスを後から注入できる Holder
-let _sendFn: ((to: string, text: string) => Promise<void>) | null = null;
-
-export function injectSendFn(fn: (to: string, text: string) => Promise<void>) {
-  _sendFn = fn;
+  });
 }
-
-export const sendMessageTool = createTool({
-  id: "send-message",
-  description:
-    "Proactively sends an iMessage to the owner. Use this only when the agent decides to initiate a message, not as a reply.",
-  inputSchema: z.object({
-    text: z.string().describe("Message text to send"),
-  }),
-  outputSchema: z.object({ success: z.boolean() }),
-  execute: async ({ text }) => {
-    if (!_sendFn) throw new Error("sendFn not injected");
-    await _sendFn(env.OWNER_PHONE, text);
-    return { success: true };
-  },
-});
 ```
 
 ---
 
-### 3.6 `src/agent/tools/set-reminder.ts`
-
-```typescript
-import { createTool } from "@mastra/core/tools";
-import { z } from "zod";
-
-// Heartbeat state への書き込み関数を後から注入
-let _addReminder: ((reminder: { text: string; dueAt: string }) => Promise<void>) | null = null;
-
-export function injectAddReminder(fn: (reminder: { text: string; dueAt: string }) => Promise<void>) {
-  _addReminder = fn;
-}
-
-export const setReminderTool = createTool({
-  id: "set-reminder",
-  description:
-    "Saves a reminder that the agent will check during heartbeat. The agent will notify the user when the due time approaches.",
-  inputSchema: z.object({
-    text: z.string().describe("What to remind the user about"),
-    dueAt: z.string().describe("ISO 8601 datetime when to remind"),
-  }),
-  outputSchema: z.object({ saved: z.boolean() }),
-  execute: async ({ text, dueAt }) => {
-    if (!_addReminder) throw new Error("addReminder not injected");
-    await _addReminder({ text, dueAt });
-    return { saved: true };
-  },
-});
-```
-
----
-
-### 3.7 `src/agent/tools/web-search.ts`
-
-**スタブ実装。`FIRECRAWL_API_KEY` があれば本実装に差し替えられる。**
-
-```typescript
-import { createTool } from "@mastra/core/tools";
-import { z } from "zod";
-
-export const webSearchTool = createTool({
-  id: "web-search",
-  description:
-    "Searches the web for current information. Use this for questions about recent events, prices, weather, or any real-time data.",
-  inputSchema: z.object({
-    query: z.string().describe("Search query"),
-  }),
-  outputSchema: z.object({
-    results: z.array(
-      z.object({
-        title: z.string(),
-        url: z.string(),
-        snippet: z.string(),
-      }),
-    ),
-  }),
-  execute: async ({ query }) => {
-    // TODO: Replace with real search API (Firecrawl, Tavily, etc.)
-    console.log(`[web-search] Stub called with query: ${query}`);
-    return {
-      results: [
-        {
-          title: "Web search not configured",
-          url: "",
-          snippet: "Set up a search API (Firecrawl/Tavily) and implement this tool.",
-        },
-      ],
-    };
-  },
-});
-```
-
----
-
-### 3.8 `src/agent/tools/index.ts`
-
-```typescript
-export { getDateTimeTool } from "./get-datetime";
-export { sendMessageTool, injectSendFn } from "./send-message";
-export { setReminderTool, injectAddReminder } from "./set-reminder";
-export { webSearchTool } from "./web-search";
-```
-
----
-
-### 3.9 `src/agent/index.ts`
+### 3.5 `src/agents/general-agent.ts`
 
 ```typescript
 import { Agent } from "@mastra/core/agent";
-import { readFileSync } from "fs";
-import { getDateTimeTool, sendMessageTool, setReminderTool, webSearchTool } from "./tools";
-import { memory } from "./memory";
-
-function loadSoul(): string {
-  try {
-    return readFileSync("./SOUL.md", "utf-8");
-  } catch {
-    return `You are a helpful personal assistant accessible via iMessage.
-Be concise and friendly. Respond in the same language the user writes in.
-Keep replies short (under 300 characters) when possible.`;
-  }
-}
+import { env } from "../env";
+import { loadTextFile } from "../utils/fs";
+import { createAgentMemory } from "./memory";
 
 export const generalAgent = new Agent({
   id: "general-agent",
   name: "General Agent",
-  instructions: loadSoul(),
-  model: "anthropic/claude-sonnet-4-6",
-  tools: {
-    getDateTimeTool,
-    sendMessageTool,
-    setReminderTool,
-    webSearchTool,
-  },
-  memory,
+  instructions: loadTextFile(new URL("./SOUL.md", import.meta.url)),
+  model: env.ANTHROPIC_MODEL,
+  memory: createAgentMemory(),
 });
 ```
 
 ---
 
-### 3.10 `src/agent/heartbeat/state.ts`
+### 3.6 `src/agents/heartbeat.ts`
 
-**Heartbeat の状態（リマインダーなど）を DB に永続化する。**
-
-```typescript
-import { LibSQLStore } from "@mastra/libsql";
-import { env } from "../lib/env";
-
-export interface Reminder {
-  id: string;
-  text: string;
-  dueAt: string; // ISO 8601
-  createdAt: string;
-}
-
-export interface HeartbeatState {
-  reminders: Reminder[];
-  metadata: Record<string, unknown>;
-  lastRunAt: string | null;
-}
-
-const DB_PATH = env.DATABASE_URL;
-
-// シンプルな KV ストアとして LibSQL を使う
-// テーブル: heartbeat_state (key TEXT PRIMARY KEY, value TEXT)
-export class HeartbeatStateStore {
-  private db: ReturnType<typeof Bun.openSync> | null = null;
-
-  async init(): Promise<void> {
-    // Bun の組み込み SQLite を使ってシンプルに実装
-    const dbPath = DB_PATH.replace("file:", "");
-
-    // LibSQLStore が既にテーブルを作るので、
-    // heartbeat 専用テーブルのみ追加
-    const { Database } = await import("bun:sqlite");
-    const db = new Database(dbPath);
-    db.run(`
-      CREATE TABLE IF NOT EXISTS heartbeat_state (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT DEFAULT (datetime('now'))
-      )
-    `);
-    db.close();
-  }
-
-  async load(): Promise<HeartbeatState> {
-    const dbPath = DB_PATH.replace("file:", "");
-    const { Database } = await import("bun:sqlite");
-    const db = new Database(dbPath);
-
-    const row = db.query<{ value: string }, []>("SELECT value FROM heartbeat_state WHERE key = 'state'").get();
-
-    db.close();
-
-    if (!row) {
-      return { reminders: [], metadata: {}, lastRunAt: null };
-    }
-
-    return JSON.parse(row.value) as HeartbeatState;
-  }
-
-  async save(state: HeartbeatState): Promise<void> {
-    const dbPath = DB_PATH.replace("file:", "");
-    const { Database } = await import("bun:sqlite");
-    const db = new Database(dbPath);
-
-    db.run(
-      `INSERT OR REPLACE INTO heartbeat_state (key, value, updated_at)
-       VALUES ('state', ?, datetime('now'))`,
-      [JSON.stringify(state)],
-    );
-
-    db.close();
-  }
-
-  async addReminder(reminder: Omit<Reminder, "id" | "createdAt">): Promise<void> {
-    const state = await this.load();
-    state.reminders.push({
-      ...reminder,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    });
-    await this.save(state);
-  }
-
-  async removeReminder(id: string): Promise<void> {
-    const state = await this.load();
-    state.reminders = state.reminders.filter((r) => r.id !== id);
-    await this.save(state);
-  }
-}
-
-export const heartbeatStateStore = new HeartbeatStateStore();
-```
-
----
-
-### 3.11 `src/agent/heartbeat/engine.ts`
+**HeartbeatEngine — 定期的にチェックリストを評価し、必要時にオーナーへ通知する。**
 
 ```typescript
-import { readFileSync } from "fs";
-import type { IMessageSDK } from "@photon-ai/imessage-kit";
-import type { Agent } from "@mastra/core/agent";
-import { heartbeatStateStore } from "./state";
-import { env } from "../lib/env";
+import { env } from "../env";
+import { loadTextFile } from "../utils/fs";
+import { logger } from "../utils/logger";
+
+interface AgentLike {
+  generate: (
+    message: string,
+    options: { memory: { resource: string; thread: string } },
+  ) => Promise<{ text: string }>;
+}
+
+function toMinuteValue(value: string): number {
+  const [hours = 0, minutes = 0] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+export function isHeartbeatActive(now: Date, start: string, end: string): boolean {
+  const current = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = toMinuteValue(start);
+  const endMinutes = toMinuteValue(end);
+
+  if (startMinutes <= endMinutes) {
+    return current >= startMinutes && current <= endMinutes;
+  }
+  return current >= startMinutes || current <= endMinutes;
+}
 
 export class HeartbeatEngine {
-  private timer: ReturnType<typeof setInterval> | null = null;
+  #timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
-    private readonly sdk: IMessageSDK,
-    private readonly agent: InstanceType<typeof Agent>,
-    private readonly ownerPhone: string,
+    private readonly deps: {
+      agent: AgentLike;
+      ownerPhone: string;
+      sendMessage: (to: string, text: string) => Promise<unknown>;
+      intervalMs?: number;
+      activeStart?: string;
+      activeEnd?: string;
+    },
   ) {}
 
-  start(intervalMs: number = env.HEARTBEAT_INTERVAL_MS): void {
-    if (this.timer) this.stop();
+  start() {
+    if (this.#timer) return;
+    const intervalMs = this.deps.intervalMs ?? env.HEARTBEAT_INTERVAL_MS;
+    this.#timer = setInterval(() => { void this.tick(); }, intervalMs);
+  }
 
-    console.log(
-      `[heartbeat] Starting with interval ${intervalMs}ms (active: ${env.HEARTBEAT_ACTIVE_START}-${env.HEARTBEAT_ACTIVE_END})`,
+  stop() {
+    if (!this.#timer) return;
+    clearInterval(this.#timer);
+    this.#timer = null;
+  }
+
+  async tick(now = new Date()): Promise<"skipped" | "silent" | "sent"> {
+    const activeStart = this.deps.activeStart ?? env.HEARTBEAT_ACTIVE_START;
+    const activeEnd = this.deps.activeEnd ?? env.HEARTBEAT_ACTIVE_END;
+
+    if (!isHeartbeatActive(now, activeStart, activeEnd)) {
+      logger.debug("[heartbeat] skipped outside active hours");
+      return "skipped";
+    }
+
+    const result = await this.deps.agent.generate(
+      loadTextFile(new URL("./HEARTBEAT.md", import.meta.url)),
+      { memory: { resource: this.deps.ownerPhone, thread: "heartbeat" } },
     );
+    const reply = result.text.trim();
 
-    // 起動直後に1回実行、その後インターバルで繰り返す
-    this.tick().catch(console.error);
-    this.timer = setInterval(() => {
-      this.tick().catch(console.error);
-    }, intervalMs);
-  }
-
-  stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-      console.log("[heartbeat] Stopped");
-    }
-  }
-
-  private isActiveHours(): boolean {
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const [startH, startM] = env.HEARTBEAT_ACTIVE_START.split(":").map(Number);
-    const [endH, endM] = env.HEARTBEAT_ACTIVE_END.split(":").map(Number);
-
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
-
-    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-  }
-
-  private buildPrompt(checklist: string, stateJson: string): string {
-    return `[HEARTBEAT CHECK]
-${checklist}
-
-Current state:
-${stateJson}
-
-Current time: ${new Date().toISOString()}
-
-Instructions:
-- Review the checklist items above
-- Check if any reminders in the state are due or approaching
-- If nothing requires the user's attention: reply EXACTLY with "HEARTBEAT_OK" and nothing else
-- If something needs attention: write a short, actionable message (under 200 chars) to send the user
-- Never send trivial or low-priority alerts`;
-  }
-
-  private async tick(): Promise<void> {
-    if (!this.isActiveHours()) {
-      console.log("[heartbeat] Outside active hours, skipping");
-      return;
+    if (!reply || reply === "HEARTBEAT_OK") {
+      logger.debug("[heartbeat] silent");
+      return "silent";
     }
 
-    console.log("[heartbeat] Running tick...");
-
-    const checklist = readFileSync("./HEARTBEAT.md", "utf-8").catch
-      ? await Promise.resolve("")
-      : readFileSync("./HEARTBEAT.md", "utf-8");
-
-    const state = await heartbeatStateStore.load();
-    const stateJson = JSON.stringify(state, null, 2);
-
-    let result: Awaited<ReturnType<typeof this.agent.generate>>;
-    try {
-      result = await this.agent.generate(this.buildPrompt(checklist, stateJson), {
-        memory: {
-          resource: this.ownerPhone,
-          thread: "heartbeat",
-        },
-      });
-    } catch (err) {
-      console.error("[heartbeat] Agent error:", err);
-      return;
-    }
-
-    const responseText = result.text.trim();
-    console.log(`[heartbeat] Response: ${responseText.slice(0, 80)}...`);
-
-    if (responseText.startsWith("HEARTBEAT_OK")) {
-      console.log("[heartbeat] Silent (HEARTBEAT_OK)");
-    } else {
-      console.log("[heartbeat] Sending alert to owner");
-      try {
-        await this.sdk.send(this.ownerPhone, responseText);
-      } catch (err) {
-        console.error("[heartbeat] Failed to send alert:", err);
-      }
-    }
-
-    // 最終実行時刻を更新
-    state.lastRunAt = new Date().toISOString();
-    await heartbeatStateStore.save(state);
+    logger.info(`-> heartbeat send to=${this.deps.ownerPhone} text=${JSON.stringify(reply)}`);
+    await this.deps.sendMessage(this.deps.ownerPhone, reply);
+    return "sent";
   }
 }
 ```
 
 ---
 
-### 3.12 `src/workflows/daily-report.ts`
-
-```typescript
-import { createWorkflow, createStep } from "@mastra/core/workflows";
-import { z } from "zod";
-
-// Cron スタブ。IMessageSDK への参照を後からインジェクト。
-let _sendFn: ((to: string, text: string) => Promise<void>) | null = null;
-export function injectWorkflowSendFn(fn: (to: string, text: string) => Promise<void>) {
-  _sendFn = fn;
-}
-
-const generateReportStep = createStep({
-  id: "generate-report",
-  inputSchema: z.object({}),
-  outputSchema: z.object({ report: z.string() }),
-  execute: async () => {
-    // TODO: Implement actual report generation using the agent
-    const report = `📋 Daily Summary\n${new Date().toLocaleDateString("ja-JP")}\n\n• No items today (stub)`;
-    return { report };
-  },
-});
-
-const sendReportStep = createStep({
-  id: "send-report",
-  inputSchema: z.object({ report: z.string() }),
-  outputSchema: z.object({ sent: z.boolean() }),
-  execute: async ({ report }) => {
-    if (!_sendFn) {
-      console.warn("[daily-report] sendFn not injected, skipping send");
-      return { sent: false };
-    }
-    const ownerPhone = process.env.OWNER_PHONE ?? "";
-    await _sendFn(ownerPhone, report);
-    return { sent: true };
-  },
-});
-
-export const dailyReportWorkflow = createWorkflow({
-  id: "daily-report",
-  description: "Generates and sends a daily summary every morning",
-  // cron: "0 9 * * *",  // ← Inngest を使う場合はコメントアウトを外す
-  inputSchema: z.object({}),
-  outputSchema: z.object({ sent: z.boolean() }),
-  steps: [generateReportStep, sendReportStep],
-})
-  .then(generateReportStep)
-  .then(sendReportStep)
-  .commit();
-```
-
----
-
-### 3.13 `src/mastra/index.ts`
-
-```typescript
-import { Mastra } from "@mastra/core";
-import { generalAgent } from "../agent";
-import { storage } from "../agent/memory";
-import { dailyReportWorkflow } from "../workflows/daily-report";
-
-export const mastra = new Mastra({
-  agents: { generalAgent },
-  workflows: { dailyReportWorkflow },
-  storage,
-});
-```
-
----
-
-### 3.14 `src/index.ts` — エントリーポイント
+### 3.7 `src/main.ts` — エントリーポイント
 
 **全モジュールをここで繋ぎ合わせる。**
 
 ```typescript
 import { IMessageSDK } from "@photon-ai/imessage-kit";
-import { generalAgent } from "./agent";
-import { injectSendFn } from "./agent/tools";
-import { injectWorkflowSendFn } from "./workflows/daily-report";
-import { injectAddReminder } from "./agent/tools/set-reminder";
-import { heartbeatStateStore } from "./agent/heartbeat/state";
-import { HeartbeatEngine } from "./agent/heartbeat/engine";
-import { env } from "./lib/env";
-import { normalizePhone } from "./lib/phone";
 
-// ─── SDK 初期化 ────────────────────────────────────────────
-const sdk = new IMessageSDK({
-  watcher: {
-    pollInterval: 2000,
-    excludeOwnMessages: true,
-  },
-});
+import { generalAgent } from "./agents/general-agent";
+import { HeartbeatEngine } from "./agents/heartbeat";
+import { env } from "./env";
+import { logger } from "./utils/logger";
+import { samePhone } from "./utils/phone";
 
-// ─── 依存関係の注入（循環依存を避けるため起動時に注入）──────────
-const sendFn = (to: string, text: string) => sdk.send(to, text);
-injectSendFn(sendFn);
-injectWorkflowSendFn(sendFn);
-injectAddReminder((reminder) => heartbeatStateStore.addReminder(reminder));
+export async function main() {
+  const sdk = new IMessageSDK({
+    watcher: { excludeOwnMessages: true },
+  });
 
-// ─── Heartbeat 初期化 ──────────────────────────────────────
-await heartbeatStateStore.init();
-const heartbeat = new HeartbeatEngine(sdk, generalAgent, env.OWNER_PHONE);
+  const heartbeat = new HeartbeatEngine({
+    agent: generalAgent,
+    ownerPhone: env.OWNER_PHONE,
+    sendMessage: (to, text) => sdk.send(to, text),
+  });
 
-// ─── iMessage ハンドラ ─────────────────────────────────────
-await sdk.startWatching({
-  onDirectMessage: async (msg) => {
-    // OWNER_PHONE フィルタ（設定している場合）
-    if (normalizePhone(msg.sender) !== env.OWNER_PHONE) {
-      console.log(`[imessage] Ignored message from ${msg.sender}`);
-      return;
-    }
+  const shutdown = async () => {
+    logger.info("Shutting down...");
+    heartbeat.stop();
+    sdk.stopWatching();
+    await sdk.close();
+    process.exit(0);
+  };
 
-    const text = msg.text ?? "";
-    if (!text.trim()) return;
+  process.once("SIGINT", () => void shutdown());
+  process.once("SIGTERM", () => void shutdown());
 
-    console.log(`[imessage] ← ${msg.sender}: ${text}`);
+  await sdk.startWatching({
+    onDirectMessage: async (message) => {
+      const sender = message.sender?.trim() || message.chatId?.trim();
+      const text = message.text?.trim();
+      if (!sender || !text || !samePhone(sender, env.OWNER_PHONE)) return;
 
-    try {
-      const result = await generalAgent.generate(text, {
-        memory: {
-          resource: normalizePhone(msg.sender),
-          thread: "default",
-        },
-      });
+      logger.info(`[imessage] <- sender=${sender} text=${JSON.stringify(text)}`);
+      try {
+        const result = await generalAgent.generate(text, {
+          memory: { resource: sender, thread: "default" },
+        });
+        const reply = result.text.trim();
+        if (reply) {
+          logger.info(`[imessage] -> to=${sender} text=${JSON.stringify(reply)}`);
+          await sdk.send(sender, reply);
+        }
+      } catch (error) {
+        logger.error("[imessage] failed to handle direct message", error);
+      }
+    },
+    onError: (error) => logger.error("[imessage] watcher error", error),
+  });
 
-      const reply = result.text;
-      await sdk.send(msg.sender, reply);
-      console.log(`[imessage] → ${msg.sender}: ${reply}`);
-    } catch (err) {
-      console.error("[imessage] Agent error:", err);
-      await sdk.send(msg.sender, "エラーが発生しました。もう一度お試しください。");
-    }
-  },
+  heartbeat.start();
+  logger.info("Agent started. Waiting for messages...");
+}
 
-  onError: (err) => {
-    console.error("[imessage] Watcher error:", err);
-  },
-});
-
-// ─── Heartbeat 開始 ────────────────────────────────────────
-heartbeat.start(env.HEARTBEAT_INTERVAL_MS);
-
-console.log("🤖 Agent started. Waiting for messages...");
-console.log(`   Owner phone: ${env.OWNER_PHONE}`);
-console.log(`   Heartbeat interval: ${env.HEARTBEAT_INTERVAL_MS / 1000}s`);
-
-// ─── Graceful Shutdown ─────────────────────────────────────
-const shutdown = async () => {
-  console.log("\n[system] Shutting down...");
-  heartbeat.stop();
-  sdk.stopWatching();
-  await sdk.close();
-  process.exit(0);
-};
-
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+if (import.meta.main) {
+  await main();
+}
 ```
 
 ---
@@ -916,8 +496,8 @@ process.on("SIGINT", shutdown);
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
-    "start": "bun run src/index.ts",
+    "dev": "bun run --hot src/main.ts",
+    "start": "bun run src/main.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -964,7 +544,7 @@ HEARTBEAT_ACTIVE_END=22:00      # HH:MM
 DATABASE_URL=file:./data/agent.db
 ```
 
-### 4.4 `HEARTBEAT.md`（テンプレート）
+### 4.4 `src/agents/HEARTBEAT.md`（テンプレート）
 
 ```markdown
 # Heartbeat Checklist
@@ -985,7 +565,7 @@ You are performing a background check on behalf of the user.
 - NEVER hallucinate tasks that aren't in the state
 ```
 
-### 4.5 `SOUL.md`（テンプレート）
+### 4.5 `src/agents/SOUL.md`（テンプレート）
 
 ```markdown
 # Identity
@@ -1018,9 +598,7 @@ You are concise, helpful, and honest.
 
 ```
 .env
-data/*.db
-data/*.db-shm
-data/*.db-wal
+data/
 node_modules/
 dist/
 ```
@@ -1061,54 +639,40 @@ bun run dev
 
 以下の順番で実装する。各ステップが完了したら確認してから次へ。
 
-### Phase 1: 基盤セットアップ（Day 1）
+### Phase 1: 基盤セットアップ
 
 - [ ] `package.json` + `tsconfig.json` 作成
-- [ ] `src/lib/env.ts` 実装・バリデーション確認
-- [ ] `src/lib/phone.ts` 実装
+- [ ] `src/env.ts` 実装・バリデーション確認
+- [ ] `src/utils/phone.ts` 実装
+- [ ] `src/utils/fs.ts` 実装
+- [ ] `src/utils/logger.ts` 実装
 - [ ] `.env` / `.env.example` / `.gitignore` 作成
-- [ ] `SOUL.md` / `HEARTBEAT.md` 作成
-- [ ] `data/` ディレクトリ作成
+- [ ] `src/agents/SOUL.md` / `src/agents/HEARTBEAT.md` 作成
 
-### Phase 2: Agent + Memory（Day 1-2）
+### Phase 2: Agent + Memory
 
-- [ ] `src/agent/memory.ts` 実装（LibSQLStore + Memory）
-- [ ] `src/agent/tools/get-datetime.ts` 実装
-- [ ] `src/agent/tools/web-search.ts` 実装（スタブ）
-- [ ] `src/agent/tools/send-message.ts` 実装（inject パターン）
-- [ ] `src/agent/tools/set-reminder.ts` 実装（inject パターン）
-- [ ] `src/agent/tools/index.ts` 実装
-- [ ] `src/agent/index.ts` 実装（generalAgent）
-- [ ] `src/mastra/index.ts` 実装
+- [ ] `src/agents/memory.ts` 実装（LibSQLStore + Memory）
+- [ ] `src/agents/general-agent.ts` 実装（generalAgent）
 
-### Phase 3: iMessage 接続（Day 2）
+### Phase 3: iMessage 接続
 
-- [ ] `src/index.ts` の基本形（SDK 初期化 + onDirectMessage のみ）実装
+- [ ] `src/main.ts` の基本形（SDK 初期化 + onDirectMessage のみ）実装
 - [ ] ✅ **動作確認**: iMessage を送ると返信が来る
 
-### Phase 4: Memory 確認（Day 3）
+### Phase 4: Memory 確認
 
-- [ ] `src/index.ts` に memory の resource/thread を追加
+- [ ] `src/main.ts` に memory の resource/thread を追加
 - [ ] ✅ **動作確認**: 「私の名前は田中です」→ 次の会話で「田中さん」と呼ばれる
 
-### Phase 5: Heartbeat（Day 4-5）
+### Phase 5: Heartbeat
 
-- [ ] `src/agent/heartbeat/state.ts` 実装（Bun SQLite）
-- [ ] `src/agent/heartbeat/engine.ts` 実装
-- [ ] `src/index.ts` に HeartbeatEngine を追加・injectAddReminder
+- [ ] `src/agents/heartbeat.ts` 実装（HeartbeatEngine）
+- [ ] `src/main.ts` に HeartbeatEngine を追加
 - [ ] ✅ **動作確認**: `HEARTBEAT_INTERVAL_MS=60000`（1分）で heartbeat が静かに動く
 - [ ] ✅ **動作確認**: `HEARTBEAT.md` にダミーのアラート条件を書くと通知が来る
 
-### Phase 6: Cron スタブ（Day 6）
+### Phase 6: 仕上げ
 
-- [ ] `src/workflows/daily-report.ts` 実装
-- [ ] `src/mastra/index.ts` に workflow 追加
-- [ ] `src/index.ts` に injectWorkflowSendFn 追加
-- [ ] ✅ **動作確認**: 手動で workflow を trigger → iMessage が届く
-
-### Phase 7: 仕上げ（Day 7-8）
-
-- [ ] `README.md` 作成（セットアップ手順）
 - [ ] `bun run typecheck` エラーゼロ確認
 - [ ] 全 DoD チェックリスト確認
 

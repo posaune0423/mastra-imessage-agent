@@ -4,6 +4,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     ANTHROPIC_API_KEY: z.string().min(1),
+    ANTHROPIC_MODEL: z.string().default("anthropic/claude-sonnet-4.6"),
     OWNER_PHONE: z.string().min(1),
 
     HEARTBEAT_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000),
@@ -19,7 +20,6 @@ export const env = createEnv({
     DATABASE_URL: z.string().default("file:./data/agent.db"),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "log", "info", "debug", "trace"]).default("info"),
   },
-
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
 });

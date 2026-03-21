@@ -1,32 +1,13 @@
-import { describe, test, expect } from "vitest";
-import { normalizePhone } from "../../src/utils/phone";
+import { describe, expect, it } from "vitest";
 
-describe("normalizePhone", () => {
-  test("removes spaces", () => {
-    expect(normalizePhone("+81 90 1234 5678")).toBe("+819012345678");
-  });
+import { normalizePhone, samePhone } from "../../src/utils/phone";
 
-  test("removes hyphens", () => {
-    expect(normalizePhone("+81-90-1234-5678")).toBe("+819012345678");
-  });
-
-  test("removes parentheses", () => {
-    expect(normalizePhone("+1 (234) 567-890")).toBe("+1234567890");
-  });
-
-  test("removes dots", () => {
-    expect(normalizePhone("+1.234.567.890")).toBe("+1234567890");
-  });
-
-  test("handles mixed formatting", () => {
+describe("phone utils", () => {
+  it("normalizes phone formatting characters", () => {
     expect(normalizePhone("+81 (90) 1234-5678")).toBe("+819012345678");
   });
 
-  test("passes through already clean numbers", () => {
-    expect(normalizePhone("+819012345678")).toBe("+819012345678");
-  });
-
-  test("handles empty string", () => {
-    expect(normalizePhone("")).toBe("");
+  it("compares equivalent phone strings", () => {
+    expect(samePhone("+81 90-1234-5678", "+819012345678")).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 # mastra-imessage-agent
 
-[Mastra](https://mastra.ai) と iMessage をつなぐエージェント用のプロジェクトです。ボット本体・ワークフロー・ツールなどをここに集約して開発します。
+[Mastra](https://mastra.ai) と iMessage をつなぐエージェント用のプロジェクトです。現在は `imessage-kit + Mastra Agent + Memory + Heartbeat` の最小構成に絞って開発します。
 
 ## リポジトリ
 
