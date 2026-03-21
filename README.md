@@ -42,7 +42,46 @@ cd mastra-imessage-agent
 bun install
 ```
 
-Configure environment variables (see `src/env.ts` and project docs). Then:
+Copy `.env.example` to `.env` and fill in the values you need. Current public config surface:
+
+```bash
+# required
+ANTHROPIC_API_KEY=...
+OWNER_PHONE=+819012345678
+
+# optional
+ANTHROPIC_MODEL=anthropic/claude-sonnet-4-6
+DATABASE_URL=file:./data/agent.db
+IMESSAGE_SCHEDULER_PERSIST_PATH=./data/imessage-scheduler.json
+HEARTBEAT_INTERVAL_MS=3600000
+HEARTBEAT_ACTIVE_START=08:00
+HEARTBEAT_ACTIVE_END=22:00
+LOG_LEVEL=info
+AUTONOMY_MAX_STEPS=5
+AUTONOMY_OBSERVATIONAL_MEMORY=false
+AUTONOMY_OBSERVATIONAL_MODEL=
+WEB_SEARCH_ENABLED=false
+WEB_FETCH_ENABLED=false
+WEB_SEARCH_PROVIDER=brave
+BRAVE_API_KEY=
+MCP_TIMEOUT_MS=60000
+MCP_SERVERS_JSON=
+```
+
+`MCP_SERVERS_JSON` is a JSON object keyed by server name. Example:
+
+```json
+{
+  "docs": {
+    "url": "https://example.com/mcp",
+    "headers": {
+      "Authorization": "Bearer token"
+    }
+  }
+}
+```
+
+Then:
 
 ```bash
 bun run start    # production-style run
