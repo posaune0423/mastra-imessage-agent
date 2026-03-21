@@ -9,7 +9,7 @@ describe("env", () => {
   });
 
   it("applies defaults for optional fields (test setup overrides some)", () => {
-    expect(env.ANTHROPIC_MODEL).toBe("anthropic/claude-sonnet-4.6");
+    expect(env.ANTHROPIC_MODEL).toBe("anthropic/claude-sonnet-4-6");
     // setup.ts overrides these for test safety
     expect(env.DATABASE_URL).toBe("file:./data/test-agent.db");
     expect(env.LOG_LEVEL).toBe("error");

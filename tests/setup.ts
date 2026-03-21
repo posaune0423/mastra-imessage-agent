@@ -1,5 +1,5 @@
 process.env.ANTHROPIC_API_KEY ??= "test-anthropic-key";
-process.env.ANTHROPIC_MODEL ??= "anthropic/claude-sonnet-4.6";
+process.env.ANTHROPIC_MODEL ??= "anthropic/claude-sonnet-4-6";
 process.env.OWNER_PHONE ??= "+819012345678";
 process.env.DATABASE_URL ??= "file:./data/test-agent.db";
 process.env.LOG_LEVEL ??= "error";

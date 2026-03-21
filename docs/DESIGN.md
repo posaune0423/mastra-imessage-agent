@@ -233,11 +233,17 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     ANTHROPIC_API_KEY: z.string().min(1),
-    ANTHROPIC_MODEL: z.string().default("anthropic/claude-sonnet-4.6"),
+    ANTHROPIC_MODEL: z.string().default("anthropic/claude-sonnet-4-6"),
     OWNER_PHONE: z.string().min(1),
     HEARTBEAT_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000),
-    HEARTBEAT_ACTIVE_START: z.string().regex(/^\d{2}:\d{2}$/).default("08:00"),
-    HEARTBEAT_ACTIVE_END: z.string().regex(/^\d{2}:\d{2}$/).default("22:00"),
+    HEARTBEAT_ACTIVE_START: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .default("08:00"),
+    HEARTBEAT_ACTIVE_END: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .default("22:00"),
     DATABASE_URL: z.string().default("file:./data/agent.db"),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "log", "info", "debug", "trace"]).default("info"),
   },
@@ -339,10 +345,7 @@ import { loadTextFile } from "../utils/fs";
 import { logger } from "../utils/logger";
 
 interface AgentLike {
-  generate: (
-    message: string,
-    options: { memory: { resource: string; thread: string } },
-  ) => Promise<{ text: string }>;
+  generate: (message: string, options: { memory: { resource: string; thread: string } }) => Promise<{ text: string }>;
 }
 
 function toMinuteValue(value: string): number {
@@ -378,7 +381,9 @@ export class HeartbeatEngine {
   start() {
     if (this.#timer) return;
     const intervalMs = this.deps.intervalMs ?? env.HEARTBEAT_INTERVAL_MS;
-    this.#timer = setInterval(() => { void this.tick(); }, intervalMs);
+    this.#timer = setInterval(() => {
+      void this.tick();
+    }, intervalMs);
   }
 
   stop() {
@@ -396,10 +401,9 @@ export class HeartbeatEngine {
       return "skipped";
     }
 
-    const result = await this.deps.agent.generate(
-      loadTextFile(new URL("./HEARTBEAT.md", import.meta.url)),
-      { memory: { resource: this.deps.ownerPhone, thread: "heartbeat" } },
-    );
+    const result = await this.deps.agent.generate(loadTextFile(new URL("./HEARTBEAT.md", import.meta.url)), {
+      memory: { resource: this.deps.ownerPhone, thread: "heartbeat" },
+    });
     const reply = result.text.trim();
 
     if (!reply || reply === "HEARTBEAT_OK") {

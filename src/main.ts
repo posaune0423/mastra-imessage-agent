@@ -14,7 +14,7 @@ export async function main() {
   const heartbeat = new HeartbeatEngine({
     agent: generalAgent,
     ownerPhone: env.OWNER_PHONE,
-    sendMessage: (to, text) => sdk.send(to, text),
+    sendMessage: async (to, text) => sdk.send(to, text),
   });
 
   const shutdown = async () => {
