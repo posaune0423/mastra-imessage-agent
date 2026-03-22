@@ -15,8 +15,9 @@
     "lint:fix": "vp lint --fix",
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
+    "check": "vp check",
     "tcheck": "vp check",
-    "ci:prepush": "vp check && bun run test",
+    "ci:prepush": "bun run check && bun run test",
     "prepare": "vp config"
   },
   "dependencies": {
