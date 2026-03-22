@@ -2,13 +2,18 @@ import { env } from "./env";
 
 const AGENT_AUTONOMY_DEFAULTS = {
   maxSteps: 5,
+  maxOutputTokens: 1_024,
   observationalMemory: {
     enabled: false,
+  },
+  memory: {
+    lastMessages: 8,
   },
 } as const;
 
 export interface AgentMemoryConfig {
   databaseUrl: string;
+  lastMessages: number;
   observationalMemory: {
     enabled: boolean;
     model: string;
@@ -18,6 +23,7 @@ export interface AgentMemoryConfig {
 export interface GeneralAgentConfig {
   model: string;
   maxSteps: number;
+  maxOutputTokens: number;
   memory: AgentMemoryConfig;
 }
 
@@ -68,8 +74,10 @@ export function createAppConfig(source = env): AppConfig {
     agent: {
       model: source.ANTHROPIC_MODEL,
       maxSteps: AGENT_AUTONOMY_DEFAULTS.maxSteps,
+      maxOutputTokens: AGENT_AUTONOMY_DEFAULTS.maxOutputTokens,
       memory: {
         databaseUrl: source.DATABASE_URL,
+        lastMessages: AGENT_AUTONOMY_DEFAULTS.memory.lastMessages,
         observationalMemory: {
           enabled: AGENT_AUTONOMY_DEFAULTS.observationalMemory.enabled,
           model: source.ANTHROPIC_MODEL,

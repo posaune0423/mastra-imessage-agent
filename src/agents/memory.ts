@@ -23,7 +23,7 @@ export function createAgentMemory(config: AgentMemoryConfig): Memory {
       url: config.databaseUrl,
     }),
     options: {
-      lastMessages: 20,
+      lastMessages: config.lastMessages,
       workingMemory: {
         enabled: true,
         scope: "resource",

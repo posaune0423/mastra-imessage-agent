@@ -35,7 +35,7 @@ graph TB
         SDK["IMessageSDK\n@photon-ai/imessage-kit\n\nonDirectMessage(msg)\nsend(to, text)"]
 
         subgraph Core["Agent Core"]
-            AGENT["generalAgent\n@mastra/core Agent\n\nmodel: claude-sonnet-4-6\ntools: {...}\nmemory: Memory"]
+            AGENT["generalAgent\n@mastra/core Agent\n\nmodel: claude-haiku-4-5\ntools: {...}\nmemory: Memory"]
         end
 
         subgraph HeartbeatEngine["Heartbeat Engine"]
@@ -233,7 +233,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     ANTHROPIC_API_KEY: z.string().min(1),
-    ANTHROPIC_MODEL: z.string().default("anthropic/claude-sonnet-4-6"),
+    ANTHROPIC_MODEL: z.string().default("anthropic/claude-haiku-4-5"),
     OWNER_PHONE: z.string().min(1),
     HEARTBEAT_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000),
     HEARTBEAT_ACTIVE_START: z

@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AgentToolRuntime } from "../../src/agents/tools";
 import { createAgentTools } from "../../src/agents/tools";
+import { createWebTools } from "../../src/agents/tools/brave";
 import { createIMessageTools } from "../../src/agents/tools/imessage";
 import { createSchedulingTools } from "../../src/agents/tools/scheduling";
-import { createWebTools } from "../../src/agents/tools/web";
 
 function createFakeRuntime(): AgentToolRuntime {
   const scheduledItems: Array<Record<string, unknown>> = [];
@@ -205,7 +205,8 @@ describe("agent tools", () => {
     });
 
     expect(Object.keys(tools).toSorted()).toEqual([
-      "brave_search",
+      "brave-fetch",
+      "brave-search",
       "imessage_cancel_reminder",
       "imessage_cancel_scheduled_message",
       "imessage_get_messages",
@@ -224,7 +225,6 @@ describe("agent tools", () => {
       "imessage_set_reminder_at",
       "imessage_set_reminder_exact",
       "imessage_set_reminder_in",
-      "web_fetch",
     ]);
   });
 
@@ -394,7 +394,7 @@ describe("agent tools", () => {
     ).resolves.toEqual({ success: true });
   });
 
-  it("executes web tools successfully and only includes brave_search when configured", async () => {
+  it("executes Brave tools successfully and only includes brave-search when configured", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -423,12 +423,12 @@ describe("agent tools", () => {
       fetchMock as never,
     );
 
-    expect("brave_search" in tools).toBe(true);
-    if (!("brave_search" in tools)) {
-      throw new Error("brave_search should be present when BRAVE_API_KEY is configured");
+    expect("brave-search" in tools).toBe(true);
+    if (!("brave-search" in tools)) {
+      throw new Error("brave-search should be present when BRAVE_API_KEY is configured");
     }
 
-    await expect(executeTool(tools.brave_search, { query: "mastra", count: 1 })).resolves.toEqual({
+    await expect(executeTool(tools["brave-search"], { query: "mastra", count: 1 })).resolves.toEqual({
       provider: "brave",
       results: [
         {
@@ -438,7 +438,7 @@ describe("agent tools", () => {
         },
       ],
     });
-    await expect(executeTool(tools.web_fetch, { url: "https://mastra.ai", maxChars: 20 })).resolves.toEqual({
+    await expect(executeTool(tools["brave-fetch"], { url: "https://mastra.ai", maxChars: 20 })).resolves.toEqual({
       url: "https://mastra.ai",
       content: "Hello World",
     });
@@ -450,7 +450,7 @@ describe("agent tools", () => {
       fetchMock as never,
     );
 
-    expect("brave_search" in toolsWithoutBrave).toBe(false);
-    expect("web_fetch" in toolsWithoutBrave).toBe(true);
+    expect("brave-search" in toolsWithoutBrave).toBe(false);
+    expect("brave-fetch" in toolsWithoutBrave).toBe(true);
   });
 });

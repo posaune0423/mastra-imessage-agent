@@ -50,7 +50,7 @@ ANTHROPIC_API_KEY=...
 OWNER_PHONE=+819012345678
 
 # optional
-ANTHROPIC_MODEL=anthropic/claude-sonnet-4-6
+ANTHROPIC_MODEL=anthropic/claude-haiku-4-5
 DATABASE_URL=file:./data/agent.db
 IMESSAGE_SCHEDULER_PERSIST_PATH=./data/imessage-scheduler.json
 HEARTBEAT_INTERVAL_MS=3600000
@@ -62,7 +62,7 @@ ALLIUM_API_KEY=
 MCP_TIMEOUT_MS=60000
 ```
 
-When `BRAVE_API_KEY` is set, the app includes the `brave_search` tool in the agent instance. `web_fetch` is built in directly. When `ALLIUM_API_KEY` is set, the app enables the Allium MCP server at `https://mcp.allium.so` using the `X-API-KEY` header. Additional MCP servers should be added as dedicated files under `src/agents/mcp/` and then wired from `src/agents/mcp/index.ts`.
+When `BRAVE_API_KEY` is set, the app includes the `web_search` tool in the agent instance. `web_fetch` is built in directly. When `ALLIUM_API_KEY` is set, the app enables the Allium MCP server at `https://mcp.allium.so` using the `X-API-KEY` header. Additional MCP servers should be added as dedicated files under `src/agents/mcp/` and then wired from `src/agents/mcp/index.ts`.
 
 Then:
 

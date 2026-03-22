@@ -15,6 +15,28 @@ interface DirectMessage {
   text?: string | null;
 }
 
+interface ToolCallLike {
+  payload: {
+    toolCallId: string;
+    toolName: string;
+    args?: unknown;
+  };
+}
+
+interface ToolResultLike {
+  payload: {
+    toolCallId: string;
+    toolName: string;
+    result: unknown;
+    isError?: boolean;
+  };
+}
+
+interface StepLike {
+  toolCalls?: ToolCallLike[];
+  toolResults?: ToolResultLike[];
+}
+
 interface DirectMessageHandlerDeps {
   ownerPhone: string;
   agent: ReturnType<typeof createGeneralAgent>;
@@ -23,24 +45,110 @@ interface DirectMessageHandlerDeps {
   maxSteps?: number;
 }
 
+const MCP_KEYWORD_PATTERN =
+  /\b(allium|wallet|onchain|on-chain|blockchain|crypto|token|defi|dex|swap|bridge|ethereum|solana|bitcoin|btc|eth|usdc|contract|address|transaction|balance|holder|pool|liquidity)\b/i;
+const TOOL_PROGRESS_REPLY = "確認しながら進めています。少し待ってください。";
+const LOG_VALUE_LIMIT = 400;
+
+function formatLogValue(value: unknown): string {
+  try {
+    const serialized = JSON.stringify(value);
+    if (!serialized) {
+      return String(value);
+    }
+
+    return serialized.length > LOG_VALUE_LIMIT ? `${serialized.slice(0, LOG_VALUE_LIMIT)}...` : serialized;
+  } catch {
+    return String(value);
+  }
+}
+
+function logToolStep(step: StepLike) {
+  for (const toolCall of step.toolCalls ?? []) {
+    logger.info(
+      `[agent] tool-call id=${toolCall.payload.toolCallId} name=${toolCall.payload.toolName} args=${formatLogValue(toolCall.payload.args)}`,
+    );
+  }
+
+  for (const toolResult of step.toolResults ?? []) {
+    const status = toolResult.payload.isError ? "error" : "ok";
+    logger.info(
+      `[agent] tool-result id=${toolResult.payload.toolCallId} name=${toolResult.payload.toolName} status=${status} result=${formatLogValue(toolResult.payload.result)}`,
+    );
+  }
+}
+
+function getRetryAfterSeconds(error: unknown): number | null {
+  if (typeof error !== "object" || error === null || !("responseHeaders" in error)) {
+    return null;
+  }
+
+  const responseHeaders = error.responseHeaders;
+  if (typeof responseHeaders !== "object" || responseHeaders === null || !("retry-after" in responseHeaders)) {
+    return null;
+  }
+
+  const retryAfter = responseHeaders["retry-after"];
+  const seconds = typeof retryAfter === "string" ? Number.parseInt(retryAfter, 10) : Number.NaN;
+  return Number.isFinite(seconds) ? seconds : null;
+}
+
+export function shouldResolveMcpToolsets(text: string): boolean {
+  return MCP_KEYWORD_PATTERN.test(text);
+}
+
+export function getDirectMessageFailureReply(error: unknown): string {
+  if (typeof error === "object" && error !== null && "statusCode" in error && error.statusCode === 429) {
+    const retryAfterSeconds = getRetryAfterSeconds(error);
+    if (retryAfterSeconds) {
+      return `今少し混み合っています。${retryAfterSeconds}秒ほど待ってからもう一度送ってください。`;
+    }
+
+    return "今少し混み合っています。少し待ってからもう一度送ってください。";
+  }
+
+  return "今ちょっと調子が悪いので、少し待ってからもう一度送ってください。";
+}
+
 export function createDirectMessageHandler(deps: DirectMessageHandlerDeps) {
   return async (message: DirectMessage) => {
     const sender = message.sender?.trim() || message.chatId?.trim();
     const text = message.text?.trim();
     if (!sender || !text || !samePhone(sender, deps.ownerPhone)) return;
+    let sentToolProgressReply = false;
 
     logger.info(`[imessage] <- sender=${sender} text=${JSON.stringify(text)}`);
 
-    const toolsets = await deps.resolveToolsets?.();
-    const result = await deps.agent.generate(text, {
-      memory: { resource: sender, thread: "default" },
-      maxSteps: deps.maxSteps,
-      toolsets,
-    });
-    const reply = result.text.trim();
-    if (reply) {
+    try {
+      const toolsets = shouldResolveMcpToolsets(text) ? await deps.resolveToolsets?.() : undefined;
+      const result = await deps.agent.generate(text, {
+        memory: { resource: sender, thread: "default" },
+        maxSteps: deps.maxSteps,
+        toolsets,
+        onStepFinish: async (step) => {
+          logToolStep(step as StepLike);
+
+          if (sentToolProgressReply || !(step as StepLike).toolCalls?.length) {
+            return;
+          }
+
+          sentToolProgressReply = true;
+          logger.info(`[imessage] -> to=${sender} text=${JSON.stringify(TOOL_PROGRESS_REPLY)}`);
+          await deps.sendMessage(sender, TOOL_PROGRESS_REPLY);
+        },
+      });
+      const reply = result.text.trim();
+      if (!reply) {
+        return;
+      }
+
       logger.info(`[imessage] -> to=${sender} text=${JSON.stringify(reply)}`);
       await deps.sendMessage(sender, reply);
+    } catch (error) {
+      logger.error("[imessage] failed to handle direct message", error);
+      const failureReply = getDirectMessageFailureReply(error);
+      logger.info(`[imessage] -> to=${sender} text=${JSON.stringify(failureReply)}`);
+      await deps.sendMessage(sender, failureReply);
     }
   };
 }
@@ -60,7 +168,6 @@ export async function main() {
     ownerPhone: appConfig.ownerPhone,
     sendMessage: async (to, text) => sdk.send(to, text),
     heartbeat: appConfig.heartbeat,
-    resolveToolsets: mcp.getToolsets,
     maxSteps: appConfig.agent.maxSteps,
   });
 
@@ -86,13 +193,7 @@ export async function main() {
   process.once("SIGTERM", () => void shutdown());
 
   await sdk.startWatching({
-    onDirectMessage: async (message) => {
-      try {
-        await onDirectMessage(message);
-      } catch (error) {
-        logger.error("[imessage] failed to handle direct message", error);
-      }
-    },
+    onDirectMessage,
     onError: (error) => logger.error("[imessage] watcher error", error),
   });
 

@@ -1,8 +1,13 @@
-# Final Check Command
+---
+name: final-check
+description: Run final quality gates (lint, format), fix root causes with minimal changes, and repeat until no errors or warnings remain. Use before completion or handoff.
+---
+
+# Final Check
 
 ## Steps
 
-1. lint, format, typecheckを実行し、error, warningが出ていないことをしっかりと確認してください。
-2. error, warningが出ている場合はその根本原因を冷静に特定し、その原因を解決するための最小限の修正を行ってください。
-3. 修正が完了したら再度lint, format, typecheckを実行し、error, warningが出ていないことを確認してください。
-4. error, warningがなくなるまで2, 3を繰り返してください。
+1. Run lint, format, then verify no errors or warnings exist.
+2. If any errors or warnings are found, identify the root cause and apply the minimum effective fix.
+3. Re-run lint, format and after each fix.
+4. Repeat steps 2 and 3 until all errors and warnings are cleared.

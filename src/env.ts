@@ -4,7 +4,7 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     ANTHROPIC_API_KEY: z.string().min(1),
-    ANTHROPIC_MODEL: z.string().default("anthropic/claude-sonnet-4-6"),
+    ANTHROPIC_MODEL: z.string().default("anthropic/claude-haiku-4-5"),
     OWNER_PHONE: z.string().min(1),
 
     HEARTBEAT_INTERVAL_MS: z.coerce.number().default(60 * 60 * 1000),

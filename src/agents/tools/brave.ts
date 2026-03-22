@@ -57,10 +57,10 @@ async function braveSearch(fetchImpl: FetchLike, config: WebToolConfig, query: s
 
 export function createWebTools(config: WebToolConfig, fetchImpl: FetchLike = fetch) {
   const tools = {
-    web_fetch: createTool({
-      id: "web_fetch",
+    "brave-fetch": createTool({
+      id: "brave-fetch",
       description:
-        "Fetch a URL and return a plain-text excerpt. Use this after search when you need the page contents rather than just result snippets.",
+        "Fetch a URL and return a plain-text excerpt. Use this after Brave search when you need the page contents rather than just result snippets.",
       inputSchema: z.object({
         url: z.string().url(),
         maxChars: z.number().int().positive().max(20_000).optional(),
@@ -89,8 +89,8 @@ export function createWebTools(config: WebToolConfig, fetchImpl: FetchLike = fet
   }
 
   return {
-    brave_search: createTool({
-      id: "brave_search",
+    "brave-search": createTool({
+      id: "brave-search",
       description:
         "Search the live web with Brave Search for current information. Use this whenever the answer depends on recent or external information.",
       inputSchema: z.object({

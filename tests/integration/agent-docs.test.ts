@@ -7,11 +7,16 @@ describe("agent markdown files", () => {
     const soul = loadTextFile(new URL("../../src/agents/SOUL.md", import.meta.url));
     expect(soul).toContain("personal assistant");
     expect(soul).toContain("scheduled message");
+    expect(soul).toContain("brave-search");
+    expect(soul).toContain("MCP tools");
+    expect(soul).toContain("do not use Markdown conventions at all");
   });
 
   it("loads HEARTBEAT.md from src/agents", () => {
     const heartbeat = loadTextFile(new URL("../../src/agents/HEARTBEAT.md", import.meta.url));
     expect(heartbeat).toContain("HEARTBEAT_OK");
     expect(heartbeat).toContain("scheduling");
+    expect(heartbeat).toContain("brave-search");
+    expect(heartbeat).toContain("Return plain text only.");
   });
 });

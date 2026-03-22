@@ -4,7 +4,7 @@ import type { AgentToolRuntime } from "./runtime";
 import { createIMessageTools } from "./imessage";
 import { createSchedulingTools } from "./scheduling";
 import { createAgentToolRuntime } from "./runtime";
-import { createWebTools } from "./web";
+import { createWebTools } from "./brave";
 import type { ToolRuntimeConfig, WebToolConfig } from "../../config";
 
 export function createAgentTools(runtime: AgentToolRuntime, config: { web: WebToolConfig }): ToolsInput {

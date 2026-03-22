@@ -6,12 +6,20 @@ import { loadTextFile } from "../utils/fs";
 import { createAgentMemory } from "./memory";
 
 export function createGeneralAgent(config: GeneralAgentConfig, tools: ToolsInput = {}) {
+  const { model, maxOutputTokens, memory } = config;
+
   return new Agent({
     id: "general-agent",
     name: "General Agent",
     instructions: loadTextFile(new URL("./SOUL.md", import.meta.url)),
-    model: config.model,
+    model,
+    defaultOptions: {
+      modelSettings: {
+        maxOutputTokens,
+        temperature: 0,
+      },
+    },
     tools,
-    memory: createAgentMemory(config.memory),
+    memory: createAgentMemory(memory),
   });
 }
