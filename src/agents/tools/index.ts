@@ -5,10 +5,11 @@ import { createIMessageTools } from "./imessage";
 import { createSchedulingTools } from "./scheduling";
 import { createAgentToolRuntime } from "./runtime";
 import { createWebTools } from "./web";
+import type { ToolRuntimeConfig, WebToolConfig } from "../../config";
 
-export function createAgentTools(runtime: AgentToolRuntime): ToolsInput {
+export function createAgentTools(runtime: AgentToolRuntime, config: { web: WebToolConfig }): ToolsInput {
   return {
-    ...createWebTools(),
+    ...createWebTools(config.web),
     ...createIMessageTools(runtime),
     ...createSchedulingTools(runtime),
   };
@@ -16,3 +17,4 @@ export function createAgentTools(runtime: AgentToolRuntime): ToolsInput {
 
 export { createAgentToolRuntime };
 export type { AgentToolRuntime };
+export type { ToolRuntimeConfig };

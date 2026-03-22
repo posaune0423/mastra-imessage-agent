@@ -1,7 +1,7 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 
-import { env } from "../../env";
+import type { WebToolConfig } from "../../config";
 
 interface FetchLike {
   (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]): Promise<Response>;
@@ -20,13 +20,10 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-async function braveSearch(fetchImpl: FetchLike, query: string, count = 5) {
-  if (!env.WEB_SEARCH_ENABLED || !env.BRAVE_API_KEY) {
-    return {
-      configured: false,
-      provider: "brave",
-      results: [] as Array<{ title: string; url: string; snippet: string }>,
-    };
+async function braveSearch(fetchImpl: FetchLike, config: WebToolConfig, query: string, count = 5) {
+  const braveSearchConfig = config.braveSearch;
+  if (!braveSearchConfig) {
+    throw new Error("Brave search is not configured.");
   }
 
   const url = new URL("https://api.search.brave.com/res/v1/web/search");
@@ -36,7 +33,7 @@ async function braveSearch(fetchImpl: FetchLike, query: string, count = 5) {
   const response = await fetchImpl(url, {
     headers: {
       Accept: "application/json",
-      "X-Subscription-Token": env.BRAVE_API_KEY,
+      "X-Subscription-Token": braveSearchConfig.apiKey,
     },
   });
 
@@ -49,8 +46,7 @@ async function braveSearch(fetchImpl: FetchLike, query: string, count = 5) {
   const results = Array.isArray(web?.results) ? web.results : [];
 
   return {
-    configured: true,
-    provider: "brave",
+    provider: "brave" as const,
     results: results.filter(isRecord).map((result) => ({
       title: typeof result.title === "string" ? result.title : typeof result.url === "string" ? result.url : "Untitled",
       url: typeof result.url === "string" ? result.url : "",
@@ -59,29 +55,8 @@ async function braveSearch(fetchImpl: FetchLike, query: string, count = 5) {
   };
 }
 
-export function createWebTools(fetchImpl: FetchLike = fetch) {
-  return {
-    web_search: createTool({
-      id: "web_search",
-      description:
-        "Search the live web for current information. Use this whenever the answer depends on recent or external information.",
-      inputSchema: z.object({
-        query: z.string().min(1),
-        count: z.number().int().positive().max(10).optional(),
-      }),
-      outputSchema: z.object({
-        configured: z.boolean(),
-        provider: z.string(),
-        results: z.array(
-          z.object({
-            title: z.string(),
-            url: z.string(),
-            snippet: z.string(),
-          }),
-        ),
-      }),
-      execute: async ({ query, count }) => braveSearch(fetchImpl, query, count),
-    }),
+export function createWebTools(config: WebToolConfig, fetchImpl: FetchLike = fetch) {
+  const tools = {
     web_fetch: createTool({
       id: "web_fetch",
       description:
@@ -91,19 +66,10 @@ export function createWebTools(fetchImpl: FetchLike = fetch) {
         maxChars: z.number().int().positive().max(20_000).optional(),
       }),
       outputSchema: z.object({
-        configured: z.boolean(),
         url: z.string(),
         content: z.string(),
       }),
       execute: async ({ url, maxChars }) => {
-        if (!env.WEB_FETCH_ENABLED) {
-          return {
-            configured: false,
-            url,
-            content: "WEB_FETCH is not enabled.",
-          };
-        }
-
         const response = await fetchImpl(url);
         if (!response.ok) {
           throw new Error(`Web fetch failed with ${response.status}`);
@@ -111,11 +77,38 @@ export function createWebTools(fetchImpl: FetchLike = fetch) {
 
         const text = stripHtml(await response.text());
         return {
-          configured: true,
           url,
           content: text.slice(0, maxChars ?? 4_000),
         };
       },
     }),
+  };
+
+  if (!config.braveSearch) {
+    return tools;
+  }
+
+  return {
+    brave_search: createTool({
+      id: "brave_search",
+      description:
+        "Search the live web with Brave Search for current information. Use this whenever the answer depends on recent or external information.",
+      inputSchema: z.object({
+        query: z.string().min(1),
+        count: z.number().int().positive().max(10).optional(),
+      }),
+      outputSchema: z.object({
+        provider: z.literal("brave"),
+        results: z.array(
+          z.object({
+            title: z.string(),
+            url: z.string(),
+            snippet: z.string(),
+          }),
+        ),
+      }),
+      execute: async ({ query, count }) => braveSearch(fetchImpl, config, query, count),
+    }),
+    ...tools,
   };
 }

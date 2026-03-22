@@ -57,29 +57,12 @@ HEARTBEAT_INTERVAL_MS=3600000
 HEARTBEAT_ACTIVE_START=08:00
 HEARTBEAT_ACTIVE_END=22:00
 LOG_LEVEL=info
-AUTONOMY_MAX_STEPS=5
-AUTONOMY_OBSERVATIONAL_MEMORY=false
-AUTONOMY_OBSERVATIONAL_MODEL=
-WEB_SEARCH_ENABLED=false
-WEB_FETCH_ENABLED=false
-WEB_SEARCH_PROVIDER=brave
 BRAVE_API_KEY=
+ALLIUM_API_KEY=
 MCP_TIMEOUT_MS=60000
-MCP_SERVERS_JSON=
 ```
 
-`MCP_SERVERS_JSON` is a JSON object keyed by server name. Example:
-
-```json
-{
-  "docs": {
-    "url": "https://example.com/mcp",
-    "headers": {
-      "Authorization": "Bearer token"
-    }
-  }
-}
-```
+When `BRAVE_API_KEY` is set, the app includes the `brave_search` tool in the agent instance. `web_fetch` is built in directly. When `ALLIUM_API_KEY` is set, the app enables the Allium MCP server at `https://mcp.allium.so` using the `X-API-KEY` header. Additional MCP servers should be added as dedicated files under `src/agents/mcp/` and then wired from `src/agents/mcp/index.ts`.
 
 Then:
 
@@ -102,7 +85,17 @@ Run tests:
 
 ```bash
 bun run test
+bun run test:unit
+bun run test:integration
+bun run test:e2e
 ```
+
+Current test coverage includes:
+
+- unit tests for env/config wiring, scheduler persistence, phone/fs helpers, and MCP runtime wiring
+- integration tests that execute every built-in Mastra tool directly without going through the iMessage watcher
+- MCP tests that resolve mocked toolsets and execute an MCP-backed tool through the runtime
+- e2e message-loop tests for direct-message routing and heartbeat behavior
 
 ### Git hooks
 

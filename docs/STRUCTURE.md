@@ -24,10 +24,8 @@
 │   │   ├── heartbeat.ts
 │   │   ├── memory.ts
 │   │   ├── mcp/
-│   │   │   ├── client.ts
+│   │   │   ├── allium.ts
 │   │   │   ├── index.ts
-│   │   │   ├── servers.ts
-│   │   │   └── toolsets.ts
 │   │   └── tools/
 │   │       ├── imessage.ts
 │   │       ├── index.ts
@@ -39,6 +37,7 @@
 │   │   ├── logger.ts
 │   │   └── phone.ts
 │   ├── env.ts
+│   ├── config.ts
 │   └── main.ts
 ├── data/                           # gitignore
 └── tests/
@@ -69,7 +68,7 @@ agent 関連の実装と、agent が runtime に読む markdown asset を置く�
 - memory
 - heartbeat
 - `tools/` — Mastra tool definitions と runtime wrappers
-- `mcp/` — MCP server 定義、client、toolset 解決
+- `mcp/` — file-based MCP server 定義と runtime 組み立て
 
 ### 3.3 `src/utils/`
 
@@ -101,6 +100,7 @@ Vitest の test hierarchy を固定する。
 ## 5. 命名ルール
 
 - env schema は `src/env.ts`
+- app config composition は `src/config.ts`
 - phone helper は `src/utils/phone.ts`
 - file loader は `src/utils/fs.ts`
 - entrypoint は `src/main.ts`

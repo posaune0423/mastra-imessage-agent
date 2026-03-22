@@ -1,10 +1,25 @@
 # Agent Guidelines
 
+## Core Principles
+
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code. YAGNI, KISS, DRY. No backward-compat shims or fallback paths unless they come free without adding cyclomatic complexity.
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
+- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Video Is Canon**: The reference video is the ultimate authority. If implementation looks different from the video, the implementation is wrong.
 - please do not oxlint-disable / eslint-disable; fix the implementation
 - Please use GitHub Flavored Markdown
 - do not ignore Oxlint (use `vp lint` / `vp check`)
 - Never read secret env files during normal work. Do not open or inspect `.env*`, `.dev.vars`, `.prod.vars`, `.env.keys`, or other secret-bearing local config unless the user explicitly asks for that file/value.
 - If env context is needed, use committed docs and `src/env.ts` to understand the schema, and ask the user to paste a non-secret subset instead of reading local secret files.
+
+## Task Management
+
+1. **Plan First**: Write plan to `.agents/memory/todo.md` with checkable items
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Document Results**: Add review section to `.agents/memory/todo.md`
+6. **Capture Lessons**: Update `.agents/memory/lessons.md` after corrections
 
 ## Steering (Project Context)
 
@@ -62,19 +77,3 @@ Use steering to align decisions with product goals, tech stack, and structure.
 - Point at logs, errors, failing tests - then resolve them
 - Zero context switching required from the user
 - Go fix failing CI tests without being told how
-
-## Task Management
-
-1. **Plan First**: Write plan to `.agents/memory/todo.md` with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review section to `.agents/memory/todo.md`
-6. **Capture Lessons**: Update `.agents/memory/lessons.md` after corrections
-
-## Core Principles
-
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code. YAGNI, KISS, DRY. No backward-compat shims or fallback paths unless they come free without adding cyclomatic complexity.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
-- **Video Is Canon**: The reference video is the ultimate authority. If implementation looks different from the video, the implementation is wrong.

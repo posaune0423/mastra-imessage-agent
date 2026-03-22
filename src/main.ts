@@ -1,11 +1,11 @@
 import { IMessageSDK } from "@photon-ai/imessage-kit";
 import type { ToolsetsInput } from "@mastra/core/agent";
 
+import { appConfig } from "./config";
 import { createGeneralAgent } from "./agents/general-agent";
 import { HeartbeatEngine } from "./agents/heartbeat";
-import { createMcpClient, resolveMcpToolsets } from "./agents/mcp";
+import { createMcpRuntime } from "./agents/mcp";
 import { createAgentToolRuntime, createAgentTools } from "./agents/tools";
-import { env } from "./env";
 import { logger } from "./utils/logger";
 import { samePhone } from "./utils/phone";
 
@@ -50,26 +50,26 @@ export async function main() {
     watcher: { excludeOwnMessages: true },
   });
 
-  const toolRuntime = createAgentToolRuntime(sdk);
-  const builtInTools = createAgentTools(toolRuntime);
-  const agent = createGeneralAgent(builtInTools);
-  const mcpClient = createMcpClient();
-  const getToolsets = async () => resolveMcpToolsets(mcpClient);
+  const toolRuntime = createAgentToolRuntime(sdk, appConfig.tools.runtime);
+  const builtInTools = createAgentTools(toolRuntime, appConfig.tools);
+  const agent = createGeneralAgent(appConfig.agent, builtInTools);
+  const mcp = createMcpRuntime(appConfig.mcp);
 
   const heartbeat = new HeartbeatEngine({
     agent,
-    ownerPhone: env.OWNER_PHONE,
+    ownerPhone: appConfig.ownerPhone,
     sendMessage: async (to, text) => sdk.send(to, text),
-    resolveToolsets: getToolsets,
-    maxSteps: env.AUTONOMY_MAX_STEPS,
+    heartbeat: appConfig.heartbeat,
+    resolveToolsets: mcp.getToolsets,
+    maxSteps: appConfig.agent.maxSteps,
   });
 
   const onDirectMessage = createDirectMessageHandler({
-    ownerPhone: env.OWNER_PHONE,
+    ownerPhone: appConfig.ownerPhone,
     agent,
     sendMessage: async (to, text) => sdk.send(to, text),
-    resolveToolsets: getToolsets,
-    maxSteps: env.AUTONOMY_MAX_STEPS,
+    resolveToolsets: mcp.getToolsets,
+    maxSteps: appConfig.agent.maxSteps,
   });
 
   const shutdown = async () => {
@@ -77,7 +77,7 @@ export async function main() {
     toolRuntime.destroy();
     heartbeat.stop();
     sdk.stopWatching();
-    await mcpClient?.disconnect();
+    await mcp.client?.disconnect();
     await sdk.close();
     process.exit(0);
   };

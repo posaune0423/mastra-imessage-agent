@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAgentToolRuntime } from "../../src/agents/tools";
+import type { ToolRuntimeConfig } from "../../src/config";
 
 const tempDirs: string[] = [];
 
@@ -24,15 +25,19 @@ describe("createAgentToolRuntime", () => {
         sentAt: new Date("2026-03-22T00:00:00.000Z"),
       }),
     } as never;
+    const config: ToolRuntimeConfig = {
+      persistPath: filePath,
+      debug: false,
+    };
 
-    const runtime = createAgentToolRuntime(sdk, filePath);
+    const runtime = createAgentToolRuntime(sdk, config);
     runtime.scheduler.schedule({
       to: "+819012345678",
       content: "Follow up",
-      sendAt: new Date("2026-03-22T01:00:00.000Z"),
+      sendAt: new Date("2099-03-22T01:00:00.000Z"),
       id: "scheduled-1",
     });
-    runtime.reminders.exact(new Date("2026-03-22T02:00:00.000Z"), "+819012345678", "Wake up", { id: "reminder-1" });
+    runtime.reminders.exact(new Date("2099-03-22T02:00:00.000Z"), "+819012345678", "Wake up", { id: "reminder-1" });
     runtime.persist();
     runtime.destroy();
 

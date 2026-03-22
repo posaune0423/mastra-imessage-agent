@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { MessageScheduler, Reminders } from "@photon-ai/imessage-kit";
 import type { IMessageSDK, Reminder, RecurringMessage, ScheduledMessage } from "@photon-ai/imessage-kit";
 
-import { env } from "../../env";
+import type { ToolRuntimeConfig } from "../../config";
 import { logger } from "../../utils/logger";
 
 interface PersistedSchedulingState {
@@ -97,15 +97,13 @@ function rehydrateState(filePath: string, scheduler: MessageScheduler, reminders
   }
 }
 
-export function createAgentToolRuntime(
-  sdk: IMessageSDK,
-  filePath = env.IMESSAGE_SCHEDULER_PERSIST_PATH,
-): AgentToolRuntime {
+export function createAgentToolRuntime(sdk: IMessageSDK, config: ToolRuntimeConfig): AgentToolRuntime {
+  const filePath = config.persistPath;
   let persist = noop;
 
   const scheduler = new MessageScheduler(
     sdk,
-    { debug: env.LOG_LEVEL === "debug" || env.LOG_LEVEL === "trace" },
+    { debug: config.debug },
     {
       onSent: () => persist(),
       onError: () => persist(),

@@ -13,10 +13,6 @@ describe("env", () => {
     // setup.ts overrides these for test safety
     expect(env.DATABASE_URL).toBe("file:./data/test-agent.db");
     expect(env.IMESSAGE_SCHEDULER_PERSIST_PATH).toBe("./data/test-imessage-scheduler.json");
-    expect(env.WEB_SEARCH_ENABLED).toBe(false);
-    expect(env.WEB_FETCH_ENABLED).toBe(false);
-    expect(env.AUTONOMY_MAX_STEPS).toBe(3);
-    expect(env.AUTONOMY_OBSERVATIONAL_MEMORY).toBe(false);
     expect(env.LOG_LEVEL).toBe("error");
   });
 });

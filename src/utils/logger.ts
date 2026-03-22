@@ -1,4 +1,4 @@
-import { env } from "../env";
+import { appConfig } from "../config";
 
 const LOG_LEVEL_PRIORITY = {
   fatal: 0,
@@ -13,7 +13,7 @@ const LOG_LEVEL_PRIORITY = {
 type LogLevel = keyof typeof LOG_LEVEL_PRIORITY;
 
 const shouldLog = (level: LogLevel): boolean => {
-  const currentLevel = env.LOG_LEVEL;
+  const currentLevel = appConfig.logLevel;
   return LOG_LEVEL_PRIORITY[level] <= LOG_LEVEL_PRIORITY[currentLevel];
 };
 

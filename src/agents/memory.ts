@@ -1,12 +1,12 @@
 import { LibSQLStore } from "@mastra/libsql";
 import { Memory } from "@mastra/memory";
 
-import { env } from "../env";
+import type { AgentMemoryConfig } from "../config";
 
-export function createAgentMemory(): Memory {
-  const observationalMemory = env.AUTONOMY_OBSERVATIONAL_MEMORY
+export function createAgentMemory(config: AgentMemoryConfig): Memory {
+  const observationalMemory = config.observationalMemory.enabled
     ? {
-        model: env.AUTONOMY_OBSERVATIONAL_MODEL ?? env.ANTHROPIC_MODEL,
+        model: config.observationalMemory.model,
         scope: "resource" as const,
         observation: {
           messageTokens: 12_000,
@@ -20,7 +20,7 @@ export function createAgentMemory(): Memory {
   return new Memory({
     storage: new LibSQLStore({
       id: "agent-storage",
-      url: env.DATABASE_URL,
+      url: config.databaseUrl,
     }),
     options: {
       lastMessages: 20,

@@ -2,11 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import { HeartbeatEngine, isHeartbeatActive } from "../../src/agents/heartbeat";
 
+const heartbeat = {
+  intervalMs: 60_000,
+  activeStart: "08:00",
+  activeEnd: "22:00",
+} as const;
+
 describe("HeartbeatEngine", () => {
   it("returns silent when the agent says HEARTBEAT_OK", async () => {
     const sendMessage = vi.fn();
     const engine = new HeartbeatEngine({
       ownerPhone: "+819012345678",
+      heartbeat,
       sendMessage,
       agent: {
         generate: vi.fn().mockResolvedValue({ text: "HEARTBEAT_OK" }),
@@ -21,6 +28,7 @@ describe("HeartbeatEngine", () => {
     const sendMessage = vi.fn();
     const engine = new HeartbeatEngine({
       ownerPhone: "+819012345678",
+      heartbeat,
       sendMessage,
       agent: {
         generate: vi.fn().mockResolvedValue({ text: "Stand up and stretch." }),

@@ -1,6 +1,6 @@
 import type { ToolsetsInput } from "@mastra/core/agent";
 
-import { env } from "../env";
+import type { HeartbeatConfig } from "../config";
 import { loadTextFile } from "../utils/fs";
 import { logger } from "../utils/logger";
 
@@ -45,9 +45,7 @@ export class HeartbeatEngine {
       agent: AgentLike;
       ownerPhone: string;
       sendMessage: (to: string, text: string) => Promise<unknown>;
-      intervalMs?: number;
-      activeStart?: string;
-      activeEnd?: string;
+      heartbeat: HeartbeatConfig;
       resolveToolsets?: () => Promise<ToolsetsInput>;
       maxSteps?: number;
     },
@@ -58,10 +56,9 @@ export class HeartbeatEngine {
       return;
     }
 
-    const intervalMs = this.deps.intervalMs ?? env.HEARTBEAT_INTERVAL_MS;
     this.#timer = setInterval(() => {
       void this.tick();
-    }, intervalMs);
+    }, this.deps.heartbeat.intervalMs);
   }
 
   stop() {
@@ -74,10 +71,7 @@ export class HeartbeatEngine {
   }
 
   async tick(now = new Date()): Promise<"skipped" | "silent" | "sent"> {
-    const activeStart = this.deps.activeStart ?? env.HEARTBEAT_ACTIVE_START;
-    const activeEnd = this.deps.activeEnd ?? env.HEARTBEAT_ACTIVE_END;
-
-    if (!isHeartbeatActive(now, activeStart, activeEnd)) {
+    if (!isHeartbeatActive(now, this.deps.heartbeat.activeStart, this.deps.heartbeat.activeEnd)) {
       logger.debug("[heartbeat] skipped outside active hours");
       return "skipped";
     }
