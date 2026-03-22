@@ -1,6 +1,9 @@
 import { createTool } from "@mastra/core/tools";
+import type { RequestContext } from "@mastra/core/request-context";
 import { z } from "zod";
 
+import { isHeartbeatRequest, resolveRecipientAlias } from "../request-context";
+import { logger } from "../../utils/logger";
 import type { AgentToolRuntime } from "./runtime";
 
 const sendPayloadSchema = z.object({
@@ -80,6 +83,53 @@ function serializeMessage(message: {
   };
 }
 
+function createSuppressedSendResult() {
+  return {
+    sentAt: new Date().toISOString(),
+    hasMessage: false,
+  };
+}
+
+function serializeSendResult(result: { sentAt: Date; message?: unknown }) {
+  return {
+    sentAt: result.sentAt.toISOString(),
+    hasMessage: Boolean(result.message),
+  };
+}
+
+function isSuppressedHeartbeatSend(toolId: string, recipient: string, requestContext?: RequestContext) {
+  if (!isHeartbeatRequest(requestContext)) {
+    return false;
+  }
+
+  logger.info(`[heartbeat] suppressed immediate ${toolId} to=${recipient}`);
+  return true;
+}
+
+function createSuppressedBatchResult(messages: Array<{ to: string }>) {
+  return {
+    results: messages.map((message) => ({
+      to: message.to,
+      success: false,
+      error: "suppressed during heartbeat",
+    })),
+  };
+}
+
+async function executeImmediateSend(
+  toolId: string,
+  to: string,
+  requestContext: RequestContext | undefined,
+  send: (recipient: string) => Promise<{ sentAt: Date; message?: unknown }>,
+) {
+  const recipient = resolveRecipientAlias(to, requestContext);
+  if (isSuppressedHeartbeatSend(toolId, recipient, requestContext)) {
+    return createSuppressedSendResult();
+  }
+
+  return serializeSendResult(await send(recipient));
+}
+
 export function createIMessageTools(runtime: AgentToolRuntime) {
   return {
     imessage_send_message: createTool({
@@ -90,13 +140,10 @@ export function createIMessageTools(runtime: AgentToolRuntime) {
         text: z.string().min(1),
       }),
       outputSchema: sendResultSchema,
-      execute: async ({ to, text }) => {
-        const result = await runtime.sdk.send(to, text);
-        return {
-          sentAt: result.sentAt.toISOString(),
-          hasMessage: Boolean(result.message),
-        };
-      },
+      execute: async ({ to, text }, context) =>
+        executeImmediateSend("imessage_send_message", to, context.requestContext, async (recipient) =>
+          runtime.sdk.send(recipient, text),
+        ),
     }),
     imessage_send_media: createTool({
       id: "imessage_send_media",
@@ -104,17 +151,14 @@ export function createIMessageTools(runtime: AgentToolRuntime) {
         "Send an iMessage with optional text plus image URLs/paths and file paths. Use this for attachments or mixed media.",
       inputSchema: sendPayloadSchema,
       outputSchema: sendResultSchema,
-      execute: async ({ to, text, images, files }) => {
-        const result = await runtime.sdk.send(to, {
-          text,
-          images,
-          files,
-        });
-        return {
-          sentAt: result.sentAt.toISOString(),
-          hasMessage: Boolean(result.message),
-        };
-      },
+      execute: async ({ to, text, images, files }, context) =>
+        executeImmediateSend("imessage_send_media", to, context.requestContext, async (recipient) =>
+          runtime.sdk.send(recipient, {
+            text,
+            images,
+            files,
+          }),
+        ),
     }),
     imessage_send_file: createTool({
       id: "imessage_send_file",
@@ -125,13 +169,10 @@ export function createIMessageTools(runtime: AgentToolRuntime) {
         text: z.string().min(1).optional(),
       }),
       outputSchema: sendResultSchema,
-      execute: async ({ to, filePath, text }) => {
-        const result = await runtime.sdk.sendFile(to, filePath, text);
-        return {
-          sentAt: result.sentAt.toISOString(),
-          hasMessage: Boolean(result.message),
-        };
-      },
+      execute: async ({ to, filePath, text }, context) =>
+        executeImmediateSend("imessage_send_file", to, context.requestContext, async (recipient) =>
+          runtime.sdk.sendFile(recipient, filePath, text),
+        ),
     }),
     imessage_send_files: createTool({
       id: "imessage_send_files",
@@ -142,13 +183,10 @@ export function createIMessageTools(runtime: AgentToolRuntime) {
         text: z.string().min(1).optional(),
       }),
       outputSchema: sendResultSchema,
-      execute: async ({ to, filePaths, text }) => {
-        const result = await runtime.sdk.sendFiles(to, filePaths, text);
-        return {
-          sentAt: result.sentAt.toISOString(),
-          hasMessage: Boolean(result.message),
-        };
-      },
+      execute: async ({ to, filePaths, text }, context) =>
+        executeImmediateSend("imessage_send_files", to, context.requestContext, async (recipient) =>
+          runtime.sdk.sendFiles(recipient, filePaths, text),
+        ),
     }),
     imessage_send_batch: createTool({
       id: "imessage_send_batch",
@@ -175,9 +213,19 @@ export function createIMessageTools(runtime: AgentToolRuntime) {
           }),
         ),
       }),
-      execute: async ({ messages }) => {
+      execute: async ({ messages }, context) => {
+        const resolvedMessages = messages.map((message) => ({
+          ...message,
+          to: resolveRecipientAlias(message.to, context.requestContext),
+        }));
+
+        if (isHeartbeatRequest(context.requestContext)) {
+          logger.info(`[heartbeat] suppressed immediate imessage_send_batch count=${resolvedMessages.length}`);
+          return createSuppressedBatchResult(resolvedMessages);
+        }
+
         const results = await runtime.sdk.sendBatch(
-          messages.map((message) => ({
+          resolvedMessages.map((message) => ({
             to: message.to,
             content:
               !message.images?.length && !message.files?.length

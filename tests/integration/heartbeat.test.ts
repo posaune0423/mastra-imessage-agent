@@ -11,12 +11,34 @@ const heartbeat = {
 describe("HeartbeatEngine", () => {
   it("returns silent when the agent says HEARTBEAT_OK", async () => {
     const sendMessage = vi.fn();
+    const generate = vi.fn().mockResolvedValue({ text: "HEARTBEAT_OK" });
     const engine = new HeartbeatEngine({
       ownerPhone: "+819012345678",
       heartbeat,
       sendMessage,
       agent: {
-        generate: vi.fn().mockResolvedValue({ text: "HEARTBEAT_OK" }),
+        generate,
+      },
+    });
+
+    await expect(engine.tick(new Date("2026-03-21T09:00:00+09:00"))).resolves.toBe("silent");
+    expect(sendMessage).not.toHaveBeenCalled();
+    const requestContext = generate.mock.calls[0]?.[1]?.requestContext;
+    expect(requestContext?.get("isHeartbeat")).toBe(true);
+    expect(requestContext?.get("sender")).toBe("+819012345678");
+    expect(requestContext?.get("ownerPhone")).toBe("+819012345678");
+  });
+
+  it("returns silent when malformed heartbeat output still contains HEARTBEAT_OK", async () => {
+    const sendMessage = vi.fn();
+    const engine = new HeartbeatEngine({
+      ownerPhone: "+819012345678",
+      heartbeat,
+      sendMessage,
+      agent: {
+        generate: vi
+          .fn()
+          .mockResolvedValue({ text: "Let me check for any pending reminders or scheduled messages.HEARTBEAT_OK" }),
       },
     });
 

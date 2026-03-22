@@ -2,7 +2,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { MessageScheduler, Reminders } from "@photon-ai/imessage-kit";
-import type { IMessageSDK, Reminder, RecurringMessage, ScheduledMessage } from "@photon-ai/imessage-kit";
+import type {
+  IMessageSDK,
+  Reminder,
+  RecurringMessage,
+  ScheduledMessage,
+  SchedulerEvents,
+} from "@photon-ai/imessage-kit";
 
 import type { ToolRuntimeConfig } from "../../config";
 import { logger } from "../../utils/logger";
@@ -33,6 +39,11 @@ export interface AgentToolRuntime {
   reminders: Reminders;
   persist: () => void;
   destroy: () => void;
+}
+
+export interface AgentToolRuntimeEvents {
+  scheduler?: SchedulerEvents;
+  reminders?: SchedulerEvents;
 }
 
 function readState(filePath: string): PersistedSchedulingState {
@@ -97,7 +108,19 @@ function rehydrateState(filePath: string, scheduler: MessageScheduler, reminders
   }
 }
 
-export function createAgentToolRuntime(sdk: IMessageSDK, config: ToolRuntimeConfig): AgentToolRuntime {
+function runLifecycleCallback(callback: (() => void) | undefined, label: string) {
+  try {
+    callback?.();
+  } catch (error) {
+    logger.error(`[scheduler] ${label} callback failed`, error);
+  }
+}
+
+export function createAgentToolRuntime(
+  sdk: IMessageSDK,
+  config: ToolRuntimeConfig,
+  events?: AgentToolRuntimeEvents,
+): AgentToolRuntime {
   const filePath = config.persistPath;
   let persist = noop;
 
@@ -105,16 +128,34 @@ export function createAgentToolRuntime(sdk: IMessageSDK, config: ToolRuntimeConf
     sdk,
     { debug: config.debug },
     {
-      onSent: () => persist(),
-      onError: () => persist(),
-      onComplete: () => persist(),
+      onSent: (message, result) => {
+        persist();
+        runLifecycleCallback(() => events?.scheduler?.onSent?.(message, result), "scheduler.onSent");
+      },
+      onError: (message, error) => {
+        persist();
+        runLifecycleCallback(() => events?.scheduler?.onError?.(message, error), "scheduler.onError");
+      },
+      onComplete: (message) => {
+        persist();
+        runLifecycleCallback(() => events?.scheduler?.onComplete?.(message), "scheduler.onComplete");
+      },
     },
   );
 
   const reminders = new Reminders(sdk, {
-    onSent: () => persist(),
-    onError: () => persist(),
-    onComplete: () => persist(),
+    onSent: (message, result) => {
+      persist();
+      runLifecycleCallback(() => events?.reminders?.onSent?.(message, result), "reminders.onSent");
+    },
+    onError: (message, error) => {
+      persist();
+      runLifecycleCallback(() => events?.reminders?.onError?.(message, error), "reminders.onError");
+    },
+    onComplete: (message) => {
+      persist();
+      runLifecycleCallback(() => events?.reminders?.onComplete?.(message), "reminders.onComplete");
+    },
   });
 
   persist = () => {

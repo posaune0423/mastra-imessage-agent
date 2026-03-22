@@ -3,6 +3,7 @@ import type { ToolsetsInput } from "@mastra/core/agent";
 import type { HeartbeatConfig } from "../config";
 import { loadTextFile } from "../utils/fs";
 import { logger } from "../utils/logger";
+import { createAgentRequestContext } from "./request-context";
 
 interface AgentLike {
   generate: (
@@ -14,6 +15,7 @@ interface AgentLike {
       };
       maxSteps?: number;
       toolsets?: ToolsetsInput;
+      requestContext?: ReturnType<typeof createAgentRequestContext>;
     },
   ) => Promise<{
     text: string;
@@ -23,6 +25,22 @@ interface AgentLike {
 function toMinuteValue(value: string): number {
   const [hours = 0, minutes = 0] = value.split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function normalizeHeartbeatReply(reply: string): string | null {
+  const trimmed = reply.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.includes("HEARTBEAT_OK")) {
+    if (trimmed !== "HEARTBEAT_OK") {
+      logger.warn(`[heartbeat] ignoring malformed silent reply text=${JSON.stringify(trimmed)}`);
+    }
+    return null;
+  }
+
+  return trimmed;
 }
 
 export function isHeartbeatActive(now: Date, start: string, end: string): boolean {
@@ -84,10 +102,14 @@ export class HeartbeatEngine {
       },
       maxSteps: this.deps.maxSteps,
       toolsets,
+      requestContext: createAgentRequestContext({
+        sender: this.deps.ownerPhone,
+        ownerPhone: this.deps.ownerPhone,
+        isHeartbeat: true,
+      }),
     });
-    const reply = result.text.trim();
-
-    if (!reply || reply === "HEARTBEAT_OK") {
+    const reply = normalizeHeartbeatReply(result.text);
+    if (!reply) {
       logger.debug("[heartbeat] silent");
       return "silent";
     }

@@ -1,10 +1,12 @@
 import { IMessageSDK } from "@photon-ai/imessage-kit";
+import type { RecurringMessage, ScheduledMessage, SchedulerEvents } from "@photon-ai/imessage-kit";
 import type { ToolsetsInput } from "@mastra/core/agent";
 
 import { appConfig } from "./config";
 import { createGeneralAgent } from "./agents/general-agent";
 import { HeartbeatEngine } from "./agents/heartbeat";
 import { createMcpRuntime } from "./agents/mcp";
+import { createAgentRequestContext } from "./agents/request-context";
 import { createAgentToolRuntime, createAgentTools } from "./agents/tools";
 import { logger } from "./utils/logger";
 import { samePhone } from "./utils/phone";
@@ -49,6 +51,7 @@ const MCP_KEYWORD_PATTERN =
   /\b(allium|wallet|onchain|on-chain|blockchain|crypto|token|defi|dex|swap|bridge|ethereum|solana|bitcoin|btc|eth|usdc|contract|address|transaction|balance|holder|pool|liquidity)\b/i;
 const TOOL_PROGRESS_REPLY = "確認しながら進めています。少し待ってください。";
 const LOG_VALUE_LIMIT = 400;
+const WORKING_MEMORY_TOOL_NAME = "updateWorkingMemory";
 
 function formatLogValue(value: unknown): string {
   try {
@@ -63,10 +66,34 @@ function formatLogValue(value: unknown): string {
   }
 }
 
+function summarizeWorkingMemoryArgs(args: unknown): string {
+  if (
+    typeof args === "object" &&
+    args !== null &&
+    "memory" in args &&
+    typeof args.memory === "string" &&
+    args.memory.trim()
+  ) {
+    return JSON.stringify({
+      memory: `[redacted working memory ${args.memory.length} chars]`,
+    });
+  }
+
+  return '"[redacted working memory]"';
+}
+
+function formatToolCallArgs(toolName: string, args: unknown): string {
+  if (toolName === WORKING_MEMORY_TOOL_NAME) {
+    return summarizeWorkingMemoryArgs(args);
+  }
+
+  return formatLogValue(args);
+}
+
 function logToolStep(step: StepLike) {
   for (const toolCall of step.toolCalls ?? []) {
     logger.info(
-      `[agent] tool-call id=${toolCall.payload.toolCallId} name=${toolCall.payload.toolName} args=${formatLogValue(toolCall.payload.args)}`,
+      `[agent] tool-call id=${toolCall.payload.toolCallId} name=${toolCall.payload.toolName} args=${formatToolCallArgs(toolCall.payload.toolName, toolCall.payload.args)}`,
     );
   }
 
@@ -91,6 +118,26 @@ function getRetryAfterSeconds(error: unknown): number | null {
   const retryAfter = responseHeaders["retry-after"];
   const seconds = typeof retryAfter === "string" ? Number.parseInt(retryAfter, 10) : Number.NaN;
   return Number.isFinite(seconds) ? seconds : null;
+}
+
+function logScheduledSend(prefix: string, message: ScheduledMessage | RecurringMessage) {
+  logger.info(`[${prefix}] sent id=${message.id} type=${message.type} to=${message.to}`);
+}
+
+function logScheduledError(prefix: string, message: ScheduledMessage | RecurringMessage, error: Error) {
+  logger.error(`[${prefix}] failed id=${message.id} type=${message.type} to=${message.to}`, error);
+}
+
+function logRecurringComplete(prefix: string, message: RecurringMessage) {
+  logger.info(`[${prefix}] completed id=${message.id} to=${message.to} sends=${message.sendCount}`);
+}
+
+export function createSchedulingLifecycleLogger(prefix: string): SchedulerEvents {
+  return {
+    onSent: (message) => logScheduledSend(prefix, message),
+    onError: (message, error) => logScheduledError(prefix, message, error),
+    onComplete: (message) => logRecurringComplete(prefix, message),
+  };
 }
 
 export function shouldResolveMcpToolsets(text: string): boolean {
@@ -120,11 +167,17 @@ export function createDirectMessageHandler(deps: DirectMessageHandlerDeps) {
     logger.info(`[imessage] <- sender=${sender} text=${JSON.stringify(text)}`);
 
     try {
+      const requestContext = createAgentRequestContext({
+        sender,
+        chatId: message.chatId ?? undefined,
+        ownerPhone: deps.ownerPhone,
+      });
       const toolsets = shouldResolveMcpToolsets(text) ? await deps.resolveToolsets?.() : undefined;
       const result = await deps.agent.generate(text, {
         memory: { resource: sender, thread: "default" },
         maxSteps: deps.maxSteps,
         toolsets,
+        requestContext,
         onStepFinish: async (step) => {
           logToolStep(step as StepLike);
 
@@ -158,7 +211,10 @@ export async function main() {
     watcher: { excludeOwnMessages: true },
   });
 
-  const toolRuntime = createAgentToolRuntime(sdk, appConfig.tools.runtime);
+  const toolRuntime = createAgentToolRuntime(sdk, appConfig.tools.runtime, {
+    scheduler: createSchedulingLifecycleLogger("scheduler"),
+    reminders: createSchedulingLifecycleLogger("reminder"),
+  });
   const builtInTools = createAgentTools(toolRuntime, appConfig.tools);
   const agent = createGeneralAgent(appConfig.agent, builtInTools);
   const mcp = createMcpRuntime(appConfig.mcp);

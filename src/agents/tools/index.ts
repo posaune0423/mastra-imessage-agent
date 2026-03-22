@@ -2,6 +2,7 @@ import type { ToolsInput } from "@mastra/core/agent";
 import type { AgentToolRuntime } from "./runtime";
 
 import { createIMessageTools } from "./imessage";
+import { createReminderTools } from "./reminder";
 import { createSchedulingTools } from "./scheduling";
 import { createAgentToolRuntime } from "./runtime";
 import { createWebTools } from "./brave";
@@ -12,6 +13,7 @@ export function createAgentTools(runtime: AgentToolRuntime, config: { web: WebTo
     ...createWebTools(config.web),
     ...createIMessageTools(runtime),
     ...createSchedulingTools(runtime),
+    ...createReminderTools(runtime),
   };
 }
 

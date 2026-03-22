@@ -23,12 +23,14 @@
 │   │   ├── general-agent.ts
 │   │   ├── heartbeat.ts
 │   │   ├── memory.ts
+│   │   ├── request-context.ts
 │   │   ├── mcp/
 │   │   │   ├── allium.ts
 │   │   │   ├── index.ts
 │   │   └── tools/
 │   │       ├── imessage.ts
 │   │       ├── index.ts
+│   │       ├── reminder.ts
 │   │       ├── runtime.ts
 │   │       ├── scheduling.ts
 │   │       └── brave.ts
@@ -67,6 +69,7 @@ agent 関連の実装と、agent が runtime に読む markdown asset を置く�
 - agent definition
 - memory
 - heartbeat
+- request context helpers for agent/tool runtime
 - `tools/` — Mastra tool definitions と runtime wrappers
 - `mcp/` — file-based MCP server 定義と runtime 組み立て
 

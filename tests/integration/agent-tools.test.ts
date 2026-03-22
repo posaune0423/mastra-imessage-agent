@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { createAgentRequestContext } from "../../src/agents/request-context";
 import type { AgentToolRuntime } from "../../src/agents/tools";
 import { createAgentTools } from "../../src/agents/tools";
 import { createWebTools } from "../../src/agents/tools/brave";
 import { createIMessageTools } from "../../src/agents/tools/imessage";
+import { createReminderTools } from "../../src/agents/tools/reminder";
 import { createSchedulingTools } from "../../src/agents/tools/scheduling";
 
 function createFakeRuntime(): AgentToolRuntime {
@@ -186,12 +188,19 @@ interface ToolLike {
   execute?: (...args: unknown[]) => PromiseLike<unknown>;
 }
 
-async function executeTool(tool: unknown, args: unknown) {
+async function executeTool(
+  tool: unknown,
+  args: unknown,
+  requestContext?: ReturnType<typeof createAgentRequestContext>,
+) {
   const executable = tool as ToolLike;
   expect(executable.execute).toBeTypeOf("function");
   return executable.execute?.(args, {
-    toolCallId: "tool-call-1",
-    messages: [],
+    agent: {
+      toolCallId: "tool-call-1",
+      messages: [],
+    },
+    requestContext,
   });
 }
 
@@ -313,6 +322,52 @@ describe("agent tools", () => {
     });
   });
 
+  it("suppresses immediate iMessage sends during heartbeat runs", async () => {
+    const runtime = createFakeRuntime();
+    const tools = createIMessageTools(runtime);
+    const sendMock = Reflect.get(runtime.sdk, "send") as ReturnType<typeof vi.fn>;
+    const sendBatchMock = Reflect.get(runtime.sdk, "sendBatch") as ReturnType<typeof vi.fn>;
+    const requestContext = createAgentRequestContext({
+      sender: "+819012345678",
+      ownerPhone: "+819012345678",
+      isHeartbeat: true,
+    });
+
+    await expect(
+      executeTool(
+        tools.imessage_send_message,
+        {
+          to: "me",
+          text: "hello",
+        },
+        requestContext,
+      ),
+    ).resolves.toMatchObject({
+      hasMessage: false,
+    });
+
+    await expect(
+      executeTool(
+        tools.imessage_send_batch,
+        {
+          messages: [
+            { to: "me", text: "one" },
+            { to: "+8191", text: "two" },
+          ],
+        },
+        requestContext,
+      ),
+    ).resolves.toEqual({
+      results: [
+        { to: "+819012345678", success: false, error: "suppressed during heartbeat" },
+        { to: "+8191", success: false, error: "suppressed during heartbeat" },
+      ],
+    });
+
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(sendBatchMock).not.toHaveBeenCalled();
+  });
+
   it("executes all scheduling tools successfully", async () => {
     const runtime = createFakeRuntime();
     const tools = createSchedulingTools(runtime);
@@ -355,6 +410,45 @@ describe("agent tools", () => {
       newSendAt: "2099-03-22T03:00:00.000Z",
     });
     await expect(
+      executeTool(tools.imessage_cancel_scheduled_message, {
+        id: "scheduled-1",
+      }),
+    ).resolves.toEqual({ success: true });
+  });
+
+  it("resolves current-user aliases in scheduling tools from request context", async () => {
+    const runtime = createFakeRuntime();
+    const tools = createSchedulingTools(runtime);
+    const requestContext = createAgentRequestContext({
+      sender: "+819012345678",
+      ownerPhone: "+819012345678",
+    });
+
+    await expect(
+      executeTool(
+        tools.imessage_schedule_message,
+        {
+          to: "me",
+          text: "later",
+          sendAt: "2099-03-22T01:00:00.000Z",
+        },
+        requestContext,
+      ),
+    ).resolves.toEqual({
+      id: "scheduled-1",
+      sendAt: "2099-03-22T01:00:00.000Z",
+    });
+
+    await expect(executeTool(tools.imessage_list_scheduled_messages, {})).resolves.toMatchObject({
+      items: [{ id: "scheduled-1", to: "+819012345678" }],
+    });
+  });
+
+  it("executes all reminder tools successfully", async () => {
+    const runtime = createFakeRuntime();
+    const tools = createReminderTools(runtime);
+
+    await expect(
       executeTool(tools.imessage_set_reminder_in, {
         duration: "5 minutes",
         to: "+8190",
@@ -383,15 +477,35 @@ describe("agent tools", () => {
       ],
     });
     await expect(
-      executeTool(tools.imessage_cancel_scheduled_message, {
-        id: "scheduled-1",
-      }),
-    ).resolves.toEqual({ success: true });
-    await expect(
       executeTool(tools.imessage_cancel_reminder, {
         id: "reminder-at-2",
       }),
     ).resolves.toEqual({ success: true });
+  });
+
+  it("resolves current-user aliases in reminder tools from request context", async () => {
+    const runtime = createFakeRuntime();
+    const tools = createReminderTools(runtime);
+    const requestContext = createAgentRequestContext({
+      sender: "+819012345678",
+      ownerPhone: "+819012345678",
+    });
+
+    await expect(
+      executeTool(
+        tools.imessage_set_reminder_in,
+        {
+          duration: "5 minutes",
+          to: "me",
+          message: "check back",
+        },
+        requestContext,
+      ),
+    ).resolves.toEqual({ id: "reminder-in-1" });
+
+    await expect(executeTool(tools.imessage_list_reminders, {})).resolves.toMatchObject({
+      items: [{ id: "reminder-in-1", to: "+819012345678", message: "check back" }],
+    });
   });
 
   it("executes Brave tools successfully and only includes brave-search when configured", async () => {
